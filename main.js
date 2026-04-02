@@ -104,7 +104,6 @@ let goToBattleBtn;
 let backHomeBtn;
 let scenarioCardsEl;
 let ambientAudioCtx;
-let projectileLayerEl;
 let themeSelectEl;
 let battleMapPreviewEl;
 let battlePreviewTitleEl;
@@ -344,40 +343,6 @@ function playFx(kind) {
   }
 }
 
-function playAmbientPulse() {
-  window.setInterval(() => {
-    if (homeScreenEl.classList.contains("hidden")) {
-      playFx("select");
-    }
-  }, 6500);
-}
-
-function animateArcherShot(attacker, target) {
-  if (!projectileLayerEl) return;
-  const boardRect = boardEl.getBoundingClientRect();
-  const fromRect = cellMap[attacker.position.y][attacker.position.x].getBoundingClientRect();
-  const toRect = cellMap[target.position.y][target.position.x].getBoundingClientRect();
-  const fromX = fromRect.left - boardRect.left + fromRect.width / 2;
-  const fromY = fromRect.top - boardRect.top + fromRect.height / 2;
-  const toX = toRect.left - boardRect.left + toRect.width / 2;
-  const toY = toRect.top - boardRect.top + toRect.height / 2;
-  const arrow = document.createElement("div");
-  arrow.className = "arrow-projectile";
-  const angle = Math.atan2(toY - fromY, toX - fromX);
-  arrow.style.left = `${fromX}px`;
-  arrow.style.top = `${fromY}px`;
-  arrow.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
-  projectileLayerEl.appendChild(arrow);
-  arrow.animate(
-    [
-      { left: `${fromX}px`, top: `${fromY}px`, opacity: 0.9 },
-      { left: `${toX}px`, top: `${toY}px`, opacity: 1 },
-    ],
-    { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" }
-  );
-  window.setTimeout(() => arrow.remove(), 280);
-}
-
 function getTerrainAt(x, y) {
   return GAME.terrain[posKey(x, y)] || null;
 }
@@ -573,20 +538,14 @@ function renderBoardCells() {
     const cell = cellMap[u.position.y][u.position.x];
     const unitEl = document.createElement("div");
     const fac = u.player === GAME.pandavPlayer ? "pandav" : "kaurav";
-    unitEl.className = `unit unit-idle ${fac}`;
+    unitEl.className = `unit ${fac}`;
     unitEl.classList.add(`hp-${hpTier(u)}`);
     const mom = GAME.momentumByUnitId[u.id];
     if (mom && mom.count >= 2) unitEl.classList.add("unit-momentum");
     if (getMoraleDamageBonus(u) > 0) unitEl.classList.add("unit-morale");
     if (countThreatsAgainst(u) > 0) unitEl.classList.add("unit-threat");
-    if (GAME.animations.attackerId === u.id) {
-      unitEl.classList.remove("unit-idle");
-      unitEl.classList.add("anim-attack");
-    }
-    if (GAME.animations.targetId === u.id) {
-      unitEl.classList.remove("unit-idle");
-      unitEl.classList.add("anim-hit");
-    }
+    if (GAME.animations.attackerId === u.id) unitEl.classList.add("anim-attack");
+    if (GAME.animations.targetId === u.id) unitEl.classList.add("anim-hit");
     const letter = document.createElement("div");
     letter.className = "letter";
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
@@ -707,7 +666,7 @@ function consumeCard(card) {
   gameScreenEl.classList.add(`effect-${card}`);
   window.setTimeout(() => {
     gameScreenEl.classList.remove("effect-strike", "effect-guard", "effect-reposition");
-  }, 520);
+  }, 220);
 }
 
 function handleCardClick(cx, cy, unit) {
@@ -790,18 +749,13 @@ function applyAttack(attacker, target) {
     }
   }
   if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
-  if (attacker.type === "A") animateArcherShot(attacker, target);
   cellMap[target.position.y][target.position.x].classList.add("attack-hit");
   playFx(attacker.type === "A" ? "archer" : "hit");
-  if (gameScreenEl) {
-    gameScreenEl.classList.add("impact-shake");
-    window.setTimeout(() => gameScreenEl.classList.remove("impact-shake"), 420);
-  }
   if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
   window.setTimeout(() => {
     GAME.animations = { attackerId: null, targetId: null, archerImpact: null };
     rerender();
-  }, 280);
+  }, 140);
 }
 
 function takeActionAt(x, y) {
@@ -877,10 +831,7 @@ function createBoard() {
     const row = [];
     for (let x = 0; x < GAME.size; x++) {
       const cell = document.createElement("div");
-      cell.className = "cell cell-alive";
-      cell.style.setProperty("--cx", String(x));
-      cell.style.setProperty("--cy", String(y));
-      cell.style.animationDelay = `${(x + y) * 0.035}s`;
+      cell.className = "cell";
       cell.addEventListener("click", () => takeActionAt(x, y));
       boardEl.appendChild(cell);
       row.push(cell);
@@ -1188,7 +1139,6 @@ function initUI() {
   goToBattleBtn = document.getElementById("goToBattleBtn");
   backHomeBtn = document.getElementById("backHomeBtn");
   scenarioCardsEl = document.getElementById("scenarioCards");
-  projectileLayerEl = document.getElementById("projectileLayer");
   themeSelectEl = document.getElementById("themeSelect");
   battleMapPreviewEl = document.getElementById("battleMapPreview");
   battlePreviewTitleEl = document.getElementById("battlePreviewTitle");
@@ -1234,7 +1184,6 @@ function main() {
   createBoard();
   attachRulesDialog();
   applyTheme("kurukshetra");
-  playAmbientPulse();
 }
 
 document.addEventListener("DOMContentLoaded", main);
