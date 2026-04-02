@@ -47,10 +47,10 @@ body {
 .home-screen {
   position: relative;
   overflow: hidden;
-  padding: 24px;
+  padding: 28px clamp(16px, 3vw, 42px);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 20px;
   background: var(--home-bg);
 }
 
@@ -87,8 +87,9 @@ body {
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 70% 26%, rgba(211, 165, 84, 0.25), transparent 30%),
-    linear-gradient(180deg, rgba(20, 38, 28, 0.15), rgba(7, 21, 14, 0.72));
+    radial-gradient(circle at 50% 34%, rgba(211, 165, 84, 0.34), transparent 33%),
+    radial-gradient(circle at 22% 70%, rgba(128, 177, 95, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(20, 38, 28, 0.22), rgba(7, 21, 14, 0.76));
 }
 
 .home-topbar,
@@ -98,75 +99,215 @@ body {
 }
 
 .home-topbar {
-  max-width: 680px;
-  padding: 22px;
-  border-radius: 16px;
-  background: rgba(6, 22, 14, 0.58);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(217, 235, 205, 0.22);
+  width: min(980px, 100%);
+  margin: 4px auto 0;
+  text-align: center;
+  padding: 12px 10px;
+}
+
+.title-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 2.2px;
+  font-size: 12px;
+  color: rgba(255, 231, 185, 0.92);
 }
 
 .title {
-  margin: 0;
-  font-size: 42px;
+  margin: 6px 0 0;
+  font-size: clamp(58px, 9vw, 110px);
   font-weight: 900;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  line-height: 0.95;
+  text-shadow: 0 10px 28px rgba(0, 0, 0, 0.46);
 }
 
 .subtitle {
-  margin: 8px 0 0;
-  font-size: 15px;
-  opacity: 0.9;
+  margin: 14px 0 0;
+  font-size: clamp(16px, 2vw, 22px);
+  opacity: 0.95;
+  color: #f9f0df;
 }
 
 .btn-primary {
-  margin-top: 16px;
-  background: linear-gradient(135deg, #4f9b5f, #3a7a49);
-  border-color: rgba(216, 238, 198, 0.35);
+  margin-top: 22px;
+  min-width: 220px;
+  padding: 12px 20px;
+  font-size: 16px;
+  letter-spacing: 0.4px;
+  background: linear-gradient(135deg, #c78f43, #8b5523);
+  border: 1px solid rgba(255, 224, 172, 0.8);
+  color: #fff5de;
+  box-shadow: 0 10px 26px rgba(83, 37, 11, 0.44), 0 0 0 2px rgba(255, 211, 135, 0.16);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 8px 22px rgba(131, 197, 109, 0.34);
+  box-shadow: 0 14px 28px rgba(83, 37, 11, 0.56), 0 0 0 2px rgba(255, 221, 169, 0.36);
+  transform: translateY(-1px);
+}
+
+.battle-preview {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+}
+
+.battle-preview-head h2 {
+  margin: 0;
+  font-size: clamp(22px, 2.3vw, 34px);
+}
+
+.battle-preview-head p {
+  margin: 3px 0 0;
+  color: rgba(248, 243, 231, 0.88);
+}
+
+.battle-map {
+  position: relative;
+  min-height: clamp(290px, 40vh, 460px);
+  border-radius: 20px;
+  border: 1px solid rgba(250, 236, 202, 0.38);
+  background:
+    radial-gradient(circle at 50% 52%, rgba(180, 124, 64, 0.36), transparent 45%),
+    linear-gradient(180deg, rgba(48, 27, 17, 0.4), rgba(25, 16, 11, 0.65)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(220, 189, 132, 0.04) 0px,
+      rgba(220, 189, 132, 0.04) 2px,
+      rgba(90, 56, 31, 0) 2px,
+      rgba(90, 56, 31, 0) 7px
+    );
+  overflow: hidden;
+  box-shadow: inset 0 0 58px rgba(0, 0, 0, 0.38), 0 16px 40px rgba(0, 0, 0, 0.36);
+}
+
+.battle-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 235, 194, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 235, 194, 0.09) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.55;
+}
+
+.lane {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 231, 179, 0.2), rgba(157, 108, 60, 0.08));
+}
+
+.lane-center { left: 43%; width: 14%; }
+.lane-left { left: 17%; width: 12%; opacity: 0.72; }
+.lane-right { right: 16%; width: 12%; opacity: 0.72; }
+
+.formation {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  filter: blur(0.2px);
+}
+
+.formation::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.formation.p1::before {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(113, 175, 255, 0.95) 0 5px, transparent 6px),
+    radial-gradient(circle at 30% 60%, rgba(113, 175, 255, 0.85) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 58%, rgba(113, 175, 255, 0.85) 0 4px, transparent 5px),
+    radial-gradient(circle at 52% 25%, rgba(113, 175, 255, 0.9) 0 4px, transparent 5px);
+}
+
+.formation.p2::before {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 142, 120, 0.95) 0 5px, transparent 6px),
+    radial-gradient(circle at 30% 60%, rgba(255, 142, 120, 0.85) 0 4px, transparent 5px),
+    radial-gradient(circle at 70% 58%, rgba(255, 142, 120, 0.85) 0 4px, transparent 5px),
+    radial-gradient(circle at 52% 25%, rgba(255, 142, 120, 0.9) 0 4px, transparent 5px);
+}
+
+.f1 { top: 20%; left: 12%; }
+.f2 { top: 56%; left: 24%; }
+.f3 { top: 36%; left: 30%; }
+.formation.p2.f1 { top: 16%; right: 14%; }
+.formation.p2.f2 { top: 52%; right: 26%; }
+.formation.p2.f3 { top: 36%; right: 30%; }
+
+.battle-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 58%, rgba(242, 177, 101, 0.35), transparent 42%);
+  pointer-events: none;
+}
+
+.battle-dust {
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle, rgba(255, 217, 160, 0.22) 0 2px, transparent 3px),
+    radial-gradient(circle, rgba(255, 217, 160, 0.14) 0 1px, transparent 2px);
+  background-size: 120px 120px, 90px 90px;
+  animation: dust-drift 20s linear infinite;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@keyframes dust-drift {
+  from { transform: translateX(0) translateY(0); }
+  to { transform: translateX(-80px) translateY(-40px); }
 }
 
 .scenario-panel {
-  margin-top: 20px;
-  padding: 18px;
-  border-radius: 14px;
-  background: rgba(5, 22, 15, 0.62);
-  border: 1px solid rgba(212, 236, 203, 0.2);
+  width: min(1180px, 100%);
+  margin: 2px auto 0;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(5, 22, 15, 0.72);
+  border: 1px solid rgba(245, 230, 198, 0.34);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.3);
 }
 
 .scenario-panel h2 {
   margin: 0 0 14px;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .scenario-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .scenario-card {
   text-align: left;
   border-radius: 12px;
-  border: 1px solid rgba(216, 236, 205, 0.26);
-  background: linear-gradient(180deg, rgba(65, 109, 72, 0.35), rgba(27, 54, 34, 0.42));
+  border: 1px solid rgba(216, 236, 205, 0.33);
+  background: linear-gradient(180deg, rgba(87, 129, 93, 0.44), rgba(27, 54, 34, 0.52));
   color: #f3fff1;
-  padding: 12px;
+  padding: 14px;
   cursor: pointer;
-  transition: transform 150ms ease, border-color 120ms ease;
+  transition: transform 150ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .scenario-card:hover {
   transform: translateY(-2px);
   border-color: rgba(236, 255, 214, 0.62);
+  box-shadow: 0 10px 16px rgba(0, 0, 0, 0.25);
 }
 
 .scenario-card.selected {
-  border-color: rgba(255, 230, 162, 0.9);
-  box-shadow: 0 0 0 2px rgba(255, 230, 162, 0.3);
+  border-color: rgba(255, 221, 149, 0.98);
+  background: linear-gradient(180deg, rgba(143, 102, 51, 0.62), rgba(94, 61, 28, 0.66));
+  box-shadow: 0 0 0 3px rgba(255, 230, 162, 0.42), 0 14px 24px rgba(0, 0, 0, 0.34);
 }
 
 .scenario-name {
@@ -749,6 +890,15 @@ body.theme-sunset {
 }
 
 @media (max-width: 900px) {
+  .home-topbar {
+    padding: 8px 0;
+  }
+  .battle-preview-head p {
+    font-size: 13px;
+  }
+  .battle-map {
+    min-height: 250px;
+  }
   .scenario-grid {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
