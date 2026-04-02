@@ -30,6 +30,10 @@ let turnBannerEl;
 let winnerLabel;
 let lastActionEl;
 let actionLogEl;
+let rulesBtn;
+let resetBtn;
+let rulesDialogEl;
+let closeRulesBtn;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -417,7 +421,36 @@ function createBoard() {
 }
 
 function attachResetButton() {
-  // Optional: you can add a reset button later; kept minimal for Phase 1.
+  if (!resetBtn) return;
+  resetBtn.addEventListener("click", () => {
+    resetGame();
+  });
+}
+
+function attachRulesDialog() {
+  if (!rulesBtn || !rulesDialogEl || !closeRulesBtn) return;
+
+  rulesBtn.addEventListener("click", () => {
+    if (typeof rulesDialogEl.showModal === "function") {
+      rulesDialogEl.showModal();
+    }
+  });
+
+  closeRulesBtn.addEventListener("click", () => {
+    rulesDialogEl.close();
+  });
+
+  rulesDialogEl.addEventListener("click", (event) => {
+    const rect = rulesDialogEl.getBoundingClientRect();
+    const isInDialog =
+      event.clientX >= rect.left &&
+      event.clientX <= rect.right &&
+      event.clientY >= rect.top &&
+      event.clientY <= rect.bottom;
+    if (!isInDialog) {
+      rulesDialogEl.close();
+    }
+  });
 }
 
 function initUI() {
@@ -427,6 +460,10 @@ function initUI() {
   winnerLabel = document.getElementById("winnerLabel");
   lastActionEl = document.getElementById("lastAction");
   actionLogEl = document.getElementById("actionLog");
+  rulesBtn = document.getElementById("rulesBtn");
+  resetBtn = document.getElementById("resetBtn");
+  rulesDialogEl = document.getElementById("rulesDialog");
+  closeRulesBtn = document.getElementById("closeRulesBtn");
 
   renderStatus();
 }
@@ -461,6 +498,8 @@ function main() {
   initUI();
   createBoard();
   initUnits();
+  attachRulesDialog();
+  attachResetButton();
   addLog("New game started. P1 to act.");
   rerender();
 }
