@@ -3,86 +3,121 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ranbhoomi (All Phases Slice)</title>
+    <title>Ranbhoomi</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main class="layout">
-      <section class="board-wrap">
-        <h1 class="title">Ranbhoomi - Strategic Battlefield</h1>
-        <div class="status">
-          <div id="turnBanner" class="turn-banner p1">
-            Turn: <strong id="currentPlayerLabel">P1</strong>
-          </div>
-          <div id="winnerLabel" class="winner hidden"></div>
-        </div>
-        <div class="top-controls">
-          <button id="rulesBtn" class="btn" type="button">Rules & Scenarios</button>
-          <button id="resetBtn" class="btn btn-secondary" type="button">Reset Match</button>
-        </div>
-        <div class="top-controls">
-          <label class="control-group" for="modeSelect">
-            Mode
-            <select id="modeSelect" class="input">
-              <option value="local">Local P1 vs P2</option>
-              <option value="ai">P1 vs AI</option>
-            </select>
-          </label>
-          <label class="control-group" for="scenarioSelect">
-            Scenario
-            <select id="scenarioSelect" class="input">
-              <option value="opening">Opening Deployment</option>
-              <option value="frontline">Frontline Clash</option>
-              <option value="flanks">Flank Pressure</option>
-              <option value="leader-hunt">Leader Hunt</option>
-            </select>
-          </label>
-          <label class="control-group checkbox-group" for="fogToggle">
-            <input id="fogToggle" type="checkbox" />
-            Fog of War
-          </label>
-        </div>
+    <main class="app">
+      <section id="homeScreen" class="screen home-screen">
+        <div class="hero-overlay"></div>
+        <header class="home-topbar">
+          <h1 class="title">Ranbhoomi</h1>
+          <p class="subtitle">Kurukshetra Command Grounds</p>
+          <button id="goToBattleBtn" class="btn btn-primary" type="button">Enter Gameplay</button>
+        </header>
 
-        <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+        <section class="scenario-panel">
+          <h2>Choose Your Battlefield Scenario</h2>
+          <div id="scenarioCards" class="scenario-grid">
+            <button class="scenario-card selected" data-scenario="opening" type="button">
+              <span class="scenario-name">Opening Formation</span>
+              <span class="scenario-desc">Balanced setup to learn control and timing.</span>
+            </button>
+            <button class="scenario-card" data-scenario="frontline" type="button">
+              <span class="scenario-name">Frontline Clash</span>
+              <span class="scenario-desc">Early infantry pressure and quick engagements.</span>
+            </button>
+            <button class="scenario-card" data-scenario="flanks" type="button">
+              <span class="scenario-name">Flank Pressure</span>
+              <span class="scenario-desc">Fast cavalry lanes and side attacks.</span>
+            </button>
+            <button class="scenario-card" data-scenario="leader-hunt" type="button">
+              <span class="scenario-name">Leader Hunt</span>
+              <span class="scenario-desc">Tactical route to expose the enemy leader.</span>
+            </button>
+            <button class="scenario-card" data-scenario="forest-ambush" type="button">
+              <span class="scenario-name">Forest Ambush</span>
+              <span class="scenario-desc">Dense greenery and hidden archer threats.</span>
+            </button>
+            <button class="scenario-card" data-scenario="royal-siege" type="button">
+              <span class="scenario-name">Royal Siege</span>
+              <span class="scenario-desc">Castle approach with high-risk center control.</span>
+            </button>
+          </div>
+        </section>
       </section>
 
-      <aside class="panel">
-        <div class="panel-section">
-          <h2>How to Play</h2>
-          <div class="hint">
-            Click your unit to select. Click a highlighted empty cell to move.
-            Click an enemy unit in range to attack.
+      <section id="gameScreen" class="screen game-screen hidden">
+        <header class="game-topbar">
+          <div class="status">
+            <div id="turnBanner" class="turn-banner p1">
+              Turn: <strong id="currentPlayerLabel">P1</strong>
+            </div>
+            <div id="winnerLabel" class="winner hidden"></div>
+          </div>
+          <div class="top-controls">
+            <button id="backHomeBtn" class="btn btn-secondary" type="button">Home</button>
+            <button id="rulesBtn" class="btn" type="button">Rules</button>
+            <button id="resetBtn" class="btn btn-secondary" type="button">Reset Match</button>
+          </div>
+          <div class="top-controls">
+            <label class="control-group" for="modeSelect">
+              Mode
+              <select id="modeSelect" class="input">
+                <option value="local">Local P1 vs P2</option>
+                <option value="ai">P1 vs AI</option>
+              </select>
+            </label>
+            <label class="control-group checkbox-group" for="fogToggle">
+              <input id="fogToggle" type="checkbox" />
+              Fog of War
+            </label>
           </div>
         </div>
 
-        <div class="panel-section">
-          <h2>Phase Systems</h2>
-          <div id="phaseState" class="hint"></div>
-        </div>
+        <div class="game-layout">
+          <section class="battlefield-panel">
+            <h2 class="section-title">Battlefield Area</h2>
+            <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+          </section>
 
-        <div class="panel-section">
-          <h2>Formation & Cards</h2>
-          <div id="bonusState" class="hint"></div>
-          <div id="cardsState" class="hint"></div>
-        </div>
+          <aside class="logs-panel">
+            <h2 class="section-title">Player Logs</h2>
+            <div class="panel-section">
+              <h3>Last Action</h3>
+              <div id="lastAction" class="last-action">-</div>
+            </div>
+            <div class="panel-section">
+              <h3>Action Log</h3>
+              <ol id="actionLog" class="action-log"></ol>
+            </div>
+            <div class="panel-section">
+              <h3>Phase + Formation</h3>
+              <div id="phaseState" class="hint"></div>
+              <div id="bonusState" class="hint"></div>
+            </div>
+            <div class="panel-section">
+              <h3>Cards</h3>
+              <div id="cardsState" class="hint"></div>
+            </div>
+          </aside>
 
-        <div class="panel-section">
-          <h2>Last Action</h2>
-          <div id="lastAction" class="last-action">-</div>
-        </div>
-
-        <div class="panel-section">
-          <h2>Action Log</h2>
-          <ol id="actionLog" class="action-log"></ol>
-        </div>
-
-        <div class="panel-section">
-          <h2>Debug</h2>
-          <div class="hint">
-            Cell coordinates are logged to the browser console on click (for testing).
+          <aside class="rules-panel">
+            <h2 class="section-title">Rules</h2>
+            <div class="hint">
+              Select your unit, move to highlighted cells, then attack enemies in range. Use cards smartly.
+            </div>
+            <ul class="rules-list">
+              <li>Defeat the enemy Leader to win.</li>
+              <li>Infantry holds lines, cavalry rotates quickly.</li>
+              <li>Archers shoot from range 2-3.</li>
+              <li>Forest reduces incoming archer damage.</li>
+              <li>Hill boosts archer attacks.</li>
+              <li>One card can be used each turn.</li>
+            </ul>
           </div>
         </div>
-      </aside>
+      </section>
     </main>
 
     <dialog id="rulesDialog" class="rules-dialog">
@@ -131,6 +166,8 @@
             <li><strong>Frontline Clash:</strong> infantry lines trade space and pressure.</li>
             <li><strong>Flank Pressure:</strong> cavalry threatens backline from side lanes.</li>
             <li><strong>Leader Hunt:</strong> focus attacks and positioning to expose enemy leader.</li>
+            <li><strong>Forest Ambush:</strong> vision and terrain focused tactical map.</li>
+            <li><strong>Royal Siege:</strong> high-intensity castle push and hold setup.</li>
           </ul>
         </section>
       </div>

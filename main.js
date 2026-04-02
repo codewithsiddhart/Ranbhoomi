@@ -19,6 +19,8 @@ const GAME = {
     1: { strike: 2, guard: 2, reposition: 2 },
     2: { strike: 2, guard: 2, reposition: 2 },
   },
+  animations: { attackerId: null, targetId: null, archerImpact: null },
+  selectedScenarioLabel: "Opening Formation",
 };
 
 const UNIT_DEFS = {
@@ -31,6 +33,7 @@ const UNIT_DEFS = {
 };
 
 const UNIT_LETTER_BY_TYPE = { L: "L", I: "I", A: "A", C: "C", E: "E", R: "R" };
+const UNIT_ICON_BY_TYPE = { L: "👑", I: "🛡️", A: "🏹", C: "🐎", E: "🐘", R: "🛞" };
 
 let cellMap = [];
 let boardEl;
@@ -44,11 +47,16 @@ let resetBtn;
 let rulesDialogEl;
 let closeRulesBtn;
 let modeSelectEl;
-let scenarioSelectEl;
 let fogToggleEl;
 let phaseStateEl;
 let bonusStateEl;
 let cardsStateEl;
+let homeScreenEl;
+let gameScreenEl;
+let goToBattleBtn;
+let backHomeBtn;
+let scenarioCardsEl;
+let ambientAudioCtx;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -85,6 +93,64 @@ function addLog(line) {
     li.textContent = item;
     actionLogEl.appendChild(li);
   }
+}
+
+function playFx(kind) {
+  try {
+    ambientAudioCtx = ambientAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const now = ambientAudioCtx.currentTime;
+    const osc = ambientAudioCtx.createOscillator();
+    const gain = ambientAudioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(ambientAudioCtx.destination);
+    gain.gain.setValueAtTime(0.0001, now);
+    if (kind === "select") {
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(420, now);
+      gain.gain.exponentialRampToValueAtTime(0.04, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+      osc.start(now);
+      osc.stop(now + 0.12);
+      return;
+    }
+    if (kind === "move") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(300, now + 0.11);
+      gain.gain.exponentialRampToValueAtTime(0.07, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      osc.start(now);
+      osc.stop(now + 0.16);
+      return;
+    }
+    if (kind === "archer") {
+      osc.type = "square";
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.exponentialRampToValueAtTime(250, now + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.06, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      osc.start(now);
+      osc.stop(now + 0.25);
+      return;
+    }
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } catch (_) {
+    // Keep gameplay intact if audio is blocked.
+  }
+}
+
+function playAmbientPulse() {
+  window.setInterval(() => {
+    if (homeScreenEl.classList.contains("hidden")) {
+      playFx("select");
+    }
+  }, 6500);
 }
 
 function getTerrainAt(x, y) {
@@ -226,16 +292,26 @@ function renderBoardCells() {
     const cell = cellMap[u.position.y][u.position.x];
     const unitEl = document.createElement("div");
     unitEl.className = `unit ${u.player === 1 ? "p1" : "p2"}`;
+    if (GAME.animations.attackerId === u.id) unitEl.classList.add("anim-attack");
+    if (GAME.animations.targetId === u.id) unitEl.classList.add("anim-hit");
     const letter = document.createElement("div");
     letter.className = "letter";
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
-    letter.textContent = UNIT_LETTER_BY_TYPE[u.type];
+    letter.textContent = UNIT_ICON_BY_TYPE[u.type];
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = UNIT_DEFS[u.type].name;
     const hp = document.createElement("div");
     hp.className = "hp";
     hp.textContent = `HP ${u.hp}${GAME.guardByUnitId[u.id] ? " +Guard" : ""}`;
     unitEl.appendChild(letter);
+    unitEl.appendChild(name);
     unitEl.appendChild(hp);
     cell.appendChild(unitEl);
+  }
+  if (GAME.animations.archerImpact) {
+    const { x, y } = GAME.animations.archerImpact;
+    cellMap[y][x].classList.add("archer-trail");
   }
 }
 
@@ -251,7 +327,7 @@ function renderStatus() {
     turnBannerEl.classList.remove("hidden");
     winnerLabel.classList.add("hidden");
   }
-  phaseStateEl.textContent = `Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain + Fog + Abilities active`;
+  phaseStateEl.textContent = `Scenario: ${GAME.selectedScenarioLabel} | Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain + Fog + Abilities active`;
   const p1Line = getFormationBonusForPlayer(1).line ? "ON" : "OFF";
   const p2Line = getFormationBonusForPlayer(2).line ? "ON" : "OFF";
   bonusStateEl.textContent = `Formation Line bonus -> P1: ${p1Line}, P2: ${p2Line}`;
@@ -354,6 +430,9 @@ function handleCardClick(cx, cy, unit) {
 
 function applyAttack(attacker, target) {
   const damage = computeDamage(attacker, target);
+  GAME.animations.attackerId = attacker.id;
+  GAME.animations.targetId = target.id;
+  GAME.animations.archerImpact = attacker.type === "A" ? { x: target.position.x, y: target.position.y } : null;
   if (GAME.guardByUnitId[target.id]) {
     GAME.guardByUnitId[target.id] -= damage;
     if (GAME.guardByUnitId[target.id] <= 0) delete GAME.guardByUnitId[target.id];
@@ -364,7 +443,12 @@ function applyAttack(attacker, target) {
   }
   if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
   cellMap[target.position.y][target.position.x].classList.add("attack-hit");
+  playFx(attacker.type === "A" ? "archer" : "hit");
   if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
+  window.setTimeout(() => {
+    GAME.animations = { attackerId: null, targetId: null, archerImpact: null };
+    rerender();
+  }, 280);
 }
 
 function takeActionAt(x, y) {
@@ -378,6 +462,7 @@ function takeActionAt(x, y) {
   if (unit) {
     if (unit.player === GAME.activePlayer) {
       GAME.selectedUnitId = GAME.selectedUnitId === unit.id ? null : unit.id;
+      playFx("select");
       addLog(`${playerLabel(unit.player)} ${UNIT_DEFS[unit.type].name} ${GAME.selectedUnitId ? "selected" : "deselected"}.`);
       rerender();
       return;
@@ -404,6 +489,7 @@ function takeActionAt(x, y) {
   }
   const from = { ...selected.position };
   selected.position = { x, y };
+  playFx("move");
   addLog(`${playerLabel(selected.player)} moved ${UNIT_DEFS[selected.type].name} from (${from.x},${from.y}) to (${x},${y}).`);
   const winner = checkWin();
   if (winner) GAME.winner = winner;
@@ -463,6 +549,22 @@ function initTerrain() {
       [3, 4, "hill"],
       [4, 3, "hill"],
     ],
+    "forest-ambush": [
+      [1, 2, "forest"],
+      [2, 2, "forest"],
+      [5, 5, "forest"],
+      [6, 5, "forest"],
+      [3, 3, "hill"],
+      [4, 4, "hill"],
+    ],
+    "royal-siege": [
+      [3, 2, "hill"],
+      [4, 2, "hill"],
+      [3, 5, "forest"],
+      [4, 5, "forest"],
+      [2, 4, "hill"],
+      [5, 3, "hill"],
+    ],
   };
   for (const [x, y, type] of mapByScenario[GAME.scenario]) {
     GAME.terrain[posKey(x, y)] = type;
@@ -490,10 +592,17 @@ function initUnits() {
       ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 5, 6], ["p2-C1", "C", 2, 0, 5], ["p2-C2", "C", 2, 7, 4], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 1, 7]
     );
   } else {
-    base.push(
-      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
-      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
-    );
+    if (GAME.scenario === "forest-ambush") {
+      base.push(
+        ["p1-L", "L", 1, 2, 0], ["p1-I1", "I", 1, 1, 2], ["p1-I2", "I", 1, 3, 2], ["p1-A1", "A", 1, 0, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
+        ["p2-L", "L", 2, 5, 7], ["p2-I1", "I", 2, 4, 5], ["p2-I2", "I", 2, 6, 5], ["p2-A1", "A", 2, 7, 6], ["p2-A2", "A", 2, 3, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 6]
+      );
+    } else {
+      base.push(
+        ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
+        ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+      );
+    }
   }
   for (const [id, type, player, x, y] of base) {
     GAME.units.push({ id, type, player, hp: UNIT_DEFS[type].hp, position: { x, y } });
@@ -585,6 +694,30 @@ function attachRulesDialog() {
   closeRulesBtn.addEventListener("click", () => rulesDialogEl.close());
 }
 
+function setupScenarioCards() {
+  const cards = scenarioCardsEl.querySelectorAll(".scenario-card");
+  for (const card of cards) {
+    card.addEventListener("click", () => {
+      for (const c of cards) c.classList.remove("selected");
+      card.classList.add("selected");
+      GAME.scenario = card.dataset.scenario;
+      GAME.selectedScenarioLabel = card.querySelector(".scenario-name").textContent.trim();
+      playFx("select");
+    });
+  }
+}
+
+function enterGameplay() {
+  homeScreenEl.classList.add("hidden");
+  gameScreenEl.classList.remove("hidden");
+  resetMatch();
+}
+
+function backToHome() {
+  gameScreenEl.classList.add("hidden");
+  homeScreenEl.classList.remove("hidden");
+}
+
 function initUI() {
   boardEl = document.getElementById("board");
   currentPlayerLabel = document.getElementById("currentPlayerLabel");
@@ -597,32 +730,35 @@ function initUI() {
   rulesDialogEl = document.getElementById("rulesDialog");
   closeRulesBtn = document.getElementById("closeRulesBtn");
   modeSelectEl = document.getElementById("modeSelect");
-  scenarioSelectEl = document.getElementById("scenarioSelect");
   fogToggleEl = document.getElementById("fogToggle");
   phaseStateEl = document.getElementById("phaseState");
   bonusStateEl = document.getElementById("bonusState");
   cardsStateEl = document.getElementById("cardsState");
+  homeScreenEl = document.getElementById("homeScreen");
+  gameScreenEl = document.getElementById("gameScreen");
+  goToBattleBtn = document.getElementById("goToBattleBtn");
+  backHomeBtn = document.getElementById("backHomeBtn");
+  scenarioCardsEl = document.getElementById("scenarioCards");
 
   resetBtn.addEventListener("click", resetMatch);
   modeSelectEl.addEventListener("change", () => {
     GAME.mode = modeSelectEl.value;
     resetMatch();
   });
-  scenarioSelectEl.addEventListener("change", () => {
-    GAME.scenario = scenarioSelectEl.value;
-    resetMatch();
-  });
   fogToggleEl.addEventListener("change", () => {
     GAME.fogEnabled = fogToggleEl.checked;
     rerender();
   });
+  goToBattleBtn.addEventListener("click", enterGameplay);
+  backHomeBtn.addEventListener("click", backToHome);
+  setupScenarioCards();
 }
 
 function main() {
   initUI();
   createBoard();
   attachRulesDialog();
-  resetMatch();
+  playAmbientPulse();
 }
 
 document.addEventListener("DOMContentLoaded", main);
