@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ranbhoomi (Phase 1 Prototype)</title>
+    <title>Ranbhoomi (All Phases Slice)</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <main class="layout">
       <section class="board-wrap">
-        <h1 class="title">Ranbhoomi - Phase 1</h1>
+        <h1 class="title">Ranbhoomi - Strategic Battlefield</h1>
         <div class="status">
           <div id="turnBanner" class="turn-banner p1">
             Turn: <strong id="currentPlayerLabel">P1</strong>
@@ -19,6 +19,28 @@
         <div class="top-controls">
           <button id="rulesBtn" class="btn" type="button">Rules & Scenarios</button>
           <button id="resetBtn" class="btn btn-secondary" type="button">Reset Match</button>
+        </div>
+        <div class="top-controls">
+          <label class="control-group" for="modeSelect">
+            Mode
+            <select id="modeSelect" class="input">
+              <option value="local">Local P1 vs P2</option>
+              <option value="ai">P1 vs AI</option>
+            </select>
+          </label>
+          <label class="control-group" for="scenarioSelect">
+            Scenario
+            <select id="scenarioSelect" class="input">
+              <option value="opening">Opening Deployment</option>
+              <option value="frontline">Frontline Clash</option>
+              <option value="flanks">Flank Pressure</option>
+              <option value="leader-hunt">Leader Hunt</option>
+            </select>
+          </label>
+          <label class="control-group checkbox-group" for="fogToggle">
+            <input id="fogToggle" type="checkbox" />
+            Fog of War
+          </label>
         </div>
 
         <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
@@ -31,6 +53,17 @@
             Click your unit to select. Click a highlighted empty cell to move.
             Click an enemy unit in range to attack.
           </div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Phase Systems</h2>
+          <div id="phaseState" class="hint"></div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Formation & Cards</h2>
+          <div id="bonusState" class="hint"></div>
+          <div id="cardsState" class="hint"></div>
         </div>
 
         <div class="panel-section">
@@ -66,17 +99,29 @@
           <h3>Turn Flow</h3>
           <ul>
             <li>Player 1 acts, then Player 2 acts.</li>
-            <li>On your turn, select one of your units.</li>
-            <li>Move to a valid tile or attack an enemy in range.</li>
+            <li>On your turn, select one of your units and move or attack.</li>
+            <li>You can also use one card on your turn.</li>
           </ul>
         </section>
         <section>
-          <h3>Units (Phase 1)</h3>
+          <h3>Units</h3>
           <ul>
             <li>Leader (L): critical unit; if defeated, game over.</li>
             <li>Infantry (I): frontline control unit.</li>
             <li>Archer (A): ranged attacker (distance 2-3).</li>
             <li>Cavalry (C): fast flanking movement.</li>
+            <li>Elephant (E): heavy breaker.</li>
+            <li>Chariot (R): elite balanced striker.</li>
+          </ul>
+        </section>
+        <section>
+          <h3>Advanced Systems</h3>
+          <ul>
+            <li>Formations: Line and Surround give combat bonuses.</li>
+            <li>Cards: Strike, Guard, and Reposition (limited charges).</li>
+            <li>Terrain: Forest and Hill affect damage or defense.</li>
+            <li>Fog of War toggle to hide enemy information at distance.</li>
+            <li>Mode select supports local multiplayer and AI opponent.</li>
           </ul>
         </section>
         <section>

@@ -1,27 +1,36 @@
 const GAME = {
   size: 8,
-  players: [1, 2],
   activePlayer: 1,
   winner: null,
+  mode: "local",
+  scenario: "opening",
+  fogEnabled: false,
   selectedUnitId: null,
   units: [],
+  terrain: {},
   lastAction: "-",
   actionLog: [],
+  cardUsedThisTurn: false,
+  pendingCard: null,
+  cardStep: null,
+  strikeBuffByPlayer: { 1: false, 2: false },
+  guardByUnitId: {},
+  cardsByPlayer: {
+    1: { strike: 2, guard: 2, reposition: 2 },
+    2: { strike: 2, guard: 2, reposition: 2 },
+  },
 };
 
 const UNIT_DEFS = {
-  L: { name: "Leader", move: 1, melee: true, archer: false, archerRange: null, damage: 3, hp: 10 },
-  I: { name: "Infantry", move: 1, melee: true, archer: false, archerRange: null, damage: 3, hp: 5 },
-  A: { name: "Archer", move: 1, melee: false, archer: true, archerRange: [2, 3], damage: 3, hp: 4 },
-  C: { name: "Cavalry", move: 2, melee: true, archer: false, archerRange: null, damage: 3, hp: 6 },
+  L: { name: "Leader", move: 1, hp: 10, damage: 3, melee: true, archerRange: null },
+  I: { name: "Infantry", move: 1, hp: 6, damage: 2, melee: true, archerRange: null },
+  A: { name: "Archer", move: 1, hp: 4, damage: 2, melee: false, archerRange: [2, 3] },
+  C: { name: "Cavalry", move: 2, hp: 6, damage: 3, melee: true, archerRange: null },
+  E: { name: "Elephant", move: 1, hp: 9, damage: 4, melee: true, archerRange: null },
+  R: { name: "Chariot", move: 2, hp: 7, damage: 3, melee: true, archerRange: null },
 };
 
-const UNIT_LETTER_BY_TYPE = {
-  L: "L",
-  I: "I",
-  A: "A",
-  C: "C",
-};
+const UNIT_LETTER_BY_TYPE = { L: "L", I: "I", A: "A", C: "C", E: "E", R: "R" };
 
 let cellMap = [];
 let boardEl;
@@ -34,6 +43,12 @@ let rulesBtn;
 let resetBtn;
 let rulesDialogEl;
 let closeRulesBtn;
+let modeSelectEl;
+let scenarioSelectEl;
+let fogToggleEl;
+let phaseStateEl;
+let bonusStateEl;
+let cardsStateEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -55,86 +70,15 @@ function maxDiagDistance(x1, y1, x2, y2) {
   return Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
 }
 
-function ChebyshevRange(x1, y1, x2, y2, minInclusive, maxInclusive) {
-  const d = maxDiagDistance(x1, y1, x2, y2);
-  return d >= minInclusive && d <= maxInclusive;
-}
-
-const MovementRules = {
-  getTargets(unit) {
-    const def = UNIT_DEFS[unit.type];
-    const moveDist = def.move;
-    const targets = [];
-
-    for (let y = 0; y < GAME.size; y++) {
-      for (let x = 0; x < GAME.size; x++) {
-        if (!withinGrid(x, y)) continue;
-        if (!isEmpty(x, y)) continue;
-        const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
-        if (d === moveDist) targets.push({ x, y });
-      }
-    }
-
-    return targets;
-  },
-  canMoveTo(unit, x, y) {
-    if (!withinGrid(x, y)) return false;
-    if (!isEmpty(x, y)) return false;
-    const def = UNIT_DEFS[unit.type];
-    const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
-    return d === def.move;
-  },
-};
-
-const CombatRules = {
-  getTargets(unit) {
-    const def = UNIT_DEFS[unit.type];
-    const targets = [];
-
-    for (const other of GAME.units) {
-      if (other.player === unit.player) continue;
-      if (UNIT_DEFS[unit.type].melee) {
-        if (maxDiagDistance(unit.position.x, unit.position.y, other.position.x, other.position.y) === 1) targets.push(other);
-      } else if (def.archer) {
-        if (ChebyshevRange(unit.position.x, unit.position.y, other.position.x, other.position.y, def.archerRange[0], def.archerRange[1])) {
-          targets.push(other);
-        }
-      }
-    }
-
-    return targets;
-  },
-  canAttack(attacker, target) {
-    if (!attacker || !target) return false;
-    if (attacker.player === target.player) return false;
-
-    const def = UNIT_DEFS[attacker.type];
-    if (def.melee) return maxDiagDistance(attacker.position.x, attacker.position.y, target.position.x, target.position.y) === 1;
-    if (def.archer) {
-      return ChebyshevRange(
-        attacker.position.x,
-        attacker.position.y,
-        target.position.x,
-        target.position.y,
-        def.archerRange[0],
-        def.archerRange[1]
-      );
-    }
-    return false;
-  },
-};
-
-function unitToPlayerName(player) {
+function playerLabel(player) {
   return player === 1 ? "P1" : "P2";
 }
 
 function addLog(line) {
   GAME.lastAction = line;
   GAME.actionLog.unshift(line);
-  GAME.actionLog = GAME.actionLog.slice(0, 12);
+  GAME.actionLog = GAME.actionLog.slice(0, 14);
   lastActionEl.textContent = GAME.lastAction;
-
-  // Keep the log simple: re-render items.
   actionLogEl.innerHTML = "";
   for (const item of GAME.actionLog) {
     const li = document.createElement("li");
@@ -143,314 +87,502 @@ function addLog(line) {
   }
 }
 
+function getTerrainAt(x, y) {
+  return GAME.terrain[posKey(x, y)] || null;
+}
+
+function isVisibleToPlayer(x, y, player) {
+  if (!GAME.fogEnabled) return true;
+  const vision = 2;
+  return GAME.units.some(
+    (u) => u.player === player && maxDiagDistance(u.position.x, u.position.y, x, y) <= vision
+  );
+}
+
+function getFormationBonusForPlayer(player) {
+  let lineActive = false;
+  for (const u of GAME.units) {
+    if (u.player !== player || u.type !== "I") continue;
+    const right = getUnitAt(u.position.x + 1, u.position.y);
+    const left = getUnitAt(u.position.x - 1, u.position.y);
+    const up = getUnitAt(u.position.x, u.position.y - 1);
+    const down = getUnitAt(u.position.x, u.position.y + 1);
+    const hasRow = right && left && right.player === player && left.player === player;
+    const hasCol = up && down && up.player === player && down.player === player;
+    if (hasRow || hasCol) {
+      lineActive = true;
+      break;
+    }
+  }
+  return { line: lineActive ? 1 : 0 };
+}
+
+function getSurroundBonus(attacker, target) {
+  const around = [
+    [target.position.x + 1, target.position.y],
+    [target.position.x - 1, target.position.y],
+    [target.position.x, target.position.y + 1],
+    [target.position.x, target.position.y - 1],
+  ];
+  const alliesNear = around
+    .map(([x, y]) => getUnitAt(x, y))
+    .filter((u) => u && u.player === attacker.player).length;
+  return alliesNear >= 2 ? 1 : 0;
+}
+
+function movementTargets(unit) {
+  const moveDist = UNIT_DEFS[unit.type].move;
+  const out = [];
+  for (let y = 0; y < GAME.size; y++) {
+    for (let x = 0; x < GAME.size; x++) {
+      if (!isEmpty(x, y)) continue;
+      if (maxDiagDistance(unit.position.x, unit.position.y, x, y) === moveDist) out.push({ x, y });
+    }
+  }
+  return out;
+}
+
+function canMoveTo(unit, x, y) {
+  if (!withinGrid(x, y) || !isEmpty(x, y)) return false;
+  return maxDiagDistance(unit.position.x, unit.position.y, x, y) === UNIT_DEFS[unit.type].move;
+}
+
+function canAttack(attacker, target) {
+  if (!attacker || !target || attacker.player === target.player) return false;
+  const def = UNIT_DEFS[attacker.type];
+  const d = maxDiagDistance(attacker.position.x, attacker.position.y, target.position.x, target.position.y);
+  if (def.melee) return d === 1;
+  if (def.archerRange) return d >= def.archerRange[0] && d <= def.archerRange[1];
+  return false;
+}
+
+function attackTargets(unit) {
+  return GAME.units.filter((other) => canAttack(unit, other));
+}
+
+function computeDamage(attacker, target) {
+  const base = UNIT_DEFS[attacker.type].damage;
+  const lineBonus = getFormationBonusForPlayer(attacker.player).line;
+  const surroundBonus = getSurroundBonus(attacker, target);
+  const strikeBonus = GAME.strikeBuffByPlayer[attacker.player] ? 2 : 0;
+  const hillBonus =
+    getTerrainAt(attacker.position.x, attacker.position.y) === "hill" && attacker.type === "A" ? 1 : 0;
+  const forestShield =
+    getTerrainAt(target.position.x, target.position.y) === "forest" && attacker.type === "A" ? 1 : 0;
+  return Math.max(1, base + lineBonus + surroundBonus + strikeBonus + hillBonus - forestShield);
+}
+
+function checkWin() {
+  const p1Leader = GAME.units.find((u) => u.player === 1 && u.type === "L");
+  const p2Leader = GAME.units.find((u) => u.player === 2 && u.type === "L");
+  if (!p1Leader) return 2;
+  if (!p2Leader) return 1;
+  const p1Units = GAME.units.some((u) => u.player === 1);
+  const p2Units = GAME.units.some((u) => u.player === 2);
+  if (!p1Units) return 2;
+  if (!p2Units) return 1;
+  return null;
+}
+
 function clearHighlights() {
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
-      cellMap[y][x].classList.remove("selected", "move-target", "attack-target", "attack-hit");
+      cellMap[y][x].classList.remove("selected", "move-target", "attack-target", "attack-hit", "fog-hidden");
     }
   }
 }
 
-function highlightSelectedAndTargets() {
+function highlightState() {
   clearHighlights();
-  if (GAME.winner) return;
-  if (!GAME.selectedUnitId) return;
-
   const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
-  if (!selected) return;
-
-  cellMap[selected.position.y][selected.position.x].classList.add("selected");
-
-  const movementTargets = MovementRules.getTargets(selected);
-  for (const t of movementTargets) {
-    cellMap[t.y][t.x].classList.add("move-target");
+  if (selected) {
+    cellMap[selected.position.y][selected.position.x].classList.add("selected");
+    for (const t of movementTargets(selected)) cellMap[t.y][t.x].classList.add("move-target");
+    for (const t of attackTargets(selected)) cellMap[t.position.y][t.position.x].classList.add("attack-target");
   }
-
-  const attackTargets = CombatRules.getTargets(selected);
-  for (const t of attackTargets) {
-    cellMap[t.position.y][t.position.x].classList.add("attack-target");
+  if (GAME.fogEnabled) {
+    for (let y = 0; y < GAME.size; y++) {
+      for (let x = 0; x < GAME.size; x++) {
+        if (!isVisibleToPlayer(x, y, GAME.activePlayer)) cellMap[y][x].classList.add("fog-hidden");
+      }
+    }
   }
 }
 
-function renderUnits() {
+function renderBoardCells() {
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
-      cellMap[y][x].innerHTML = "";
+      const cell = cellMap[y][x];
+      cell.innerHTML = "";
+      cell.classList.remove("terrain-forest", "terrain-hill");
+      const terrain = getTerrainAt(x, y);
+      if (terrain === "forest") cell.classList.add("terrain-forest");
+      if (terrain === "hill") cell.classList.add("terrain-hill");
     }
   }
-
-  // Units
   for (const u of GAME.units) {
+    const hidden = GAME.fogEnabled && u.player !== GAME.activePlayer && !isVisibleToPlayer(u.position.x, u.position.y, GAME.activePlayer);
+    if (hidden) continue;
     const cell = cellMap[u.position.y][u.position.x];
-    const letter = UNIT_LETTER_BY_TYPE[u.type] || "?";
-
     const unitEl = document.createElement("div");
     unitEl.className = `unit ${u.player === 1 ? "p1" : "p2"}`;
-
-    const letterEl = document.createElement("div");
-    letterEl.className = "letter";
-    letterEl.textContent = letter;
-
-    const hpEl = document.createElement("div");
-    hpEl.className = "hp";
-    hpEl.textContent = `HP ${u.hp}`;
-
-    unitEl.appendChild(letterEl);
-    unitEl.appendChild(hpEl);
+    const letter = document.createElement("div");
+    letter.className = "letter";
+    if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
+    letter.textContent = UNIT_LETTER_BY_TYPE[u.type];
+    const hp = document.createElement("div");
+    hp.className = "hp";
+    hp.textContent = `HP ${u.hp}${GAME.guardByUnitId[u.id] ? " +Guard" : ""}`;
+    unitEl.appendChild(letter);
+    unitEl.appendChild(hp);
     cell.appendChild(unitEl);
   }
 }
 
-function renderBoardCoordinatesInConsole() {
-  // Coordinates are already logged on click; this function is a placeholder for future debug additions.
-}
-
 function renderStatus() {
-  currentPlayerLabel.textContent = unitToPlayerName(GAME.activePlayer);
+  currentPlayerLabel.textContent = playerLabel(GAME.activePlayer);
   turnBannerEl.classList.remove("p1", "p2");
   turnBannerEl.classList.add(GAME.activePlayer === 1 ? "p1" : "p2");
-
-  if (!GAME.winner) {
-    winnerLabel.classList.add("hidden");
-    winnerLabel.textContent = "";
-    turnBannerEl.classList.remove("hidden");
-  } else {
-    winnerLabel.classList.remove("hidden");
-    winnerLabel.textContent = `${unitToPlayerName(GAME.winner)} WINS! Leader defeated.`;
+  if (GAME.winner) {
     turnBannerEl.classList.add("hidden");
+    winnerLabel.classList.remove("hidden");
+    winnerLabel.textContent = `${playerLabel(GAME.winner)} wins the war.`;
+  } else {
+    turnBannerEl.classList.remove("hidden");
+    winnerLabel.classList.add("hidden");
   }
+  phaseStateEl.textContent = `Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain + Fog + Abilities active`;
+  const p1Line = getFormationBonusForPlayer(1).line ? "ON" : "OFF";
+  const p2Line = getFormationBonusForPlayer(2).line ? "ON" : "OFF";
+  bonusStateEl.textContent = `Formation Line bonus -> P1: ${p1Line}, P2: ${p2Line}`;
+  cardsStateEl.innerHTML = renderCardsUI();
+  attachCardButtons();
 }
 
-function rerender() {
-  renderUnits();
-  highlightSelectedAndTargets();
-  renderStatus();
+function renderCardsUI() {
+  const p = GAME.activePlayer;
+  const c = GAME.cardsByPlayer[p];
+  return `
+    <div style="margin-bottom:6px;">${playerLabel(p)} cards (use one per turn):</div>
+    <div class="top-controls">
+      <button class="btn card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Strike (${c.strike})</button>
+      <button class="btn card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Guard (${c.guard})</button>
+      <button class="btn card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Reposition (${c.reposition})</button>
+    </div>
+    <div class="hint">${GAME.pendingCard ? `Pending card: ${GAME.pendingCard}` : "No pending card."}</div>
+  `;
+}
+
+function attachCardButtons() {
+  const btns = cardsStateEl.querySelectorAll(".card-btn");
+  for (const b of btns) {
+    b.addEventListener("click", () => {
+      const card = b.dataset.card;
+      if (GAME.cardUsedThisTurn) return;
+      const left = GAME.cardsByPlayer[GAME.activePlayer][card];
+      if (left <= 0) return;
+      GAME.pendingCard = card;
+      GAME.cardStep = card === "reposition" ? "pick-unit" : "pick-target";
+      addLog(`${playerLabel(GAME.activePlayer)} preparing ${card} card.`);
+      rerender();
+    });
+  }
 }
 
 function switchTurn() {
   GAME.activePlayer = GAME.activePlayer === 1 ? 2 : 1;
   GAME.selectedUnitId = null;
+  GAME.pendingCard = null;
+  GAME.cardStep = null;
+  GAME.cardUsedThisTurn = false;
 }
 
-function getUnitForSelection() {
-  return GAME.units.find((u) => u.id === GAME.selectedUnitId) || null;
+function consumeCard(card) {
+  GAME.cardsByPlayer[GAME.activePlayer][card] -= 1;
+  GAME.cardUsedThisTurn = true;
 }
 
-function checkLeaderDefeat() {
-  const leaders = GAME.units.filter((u) => u.type === "L");
-  const p1Leader = leaders.find((u) => u.player === 1) || null;
-  const p2Leader = leaders.find((u) => u.player === 2) || null;
-
-  if (!p1Leader) return 2;
-  if (!p2Leader) return 1;
-  return null;
-}
-
-function moveSelectedTo(x, y) {
-  const unit = getUnitForSelection();
-  if (!unit) return false;
-  if (unit.player !== GAME.activePlayer) return false;
-  if (!MovementRules.canMoveTo(unit, x, y)) return false;
-
-  const from = { x: unit.position.x, y: unit.position.y };
-  unit.position = { x, y };
-  addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} moved from (${from.x},${from.y}) to (${x},${y})`);
-  const winner = checkLeaderDefeat(); // Movement can't kill leaders, but keep logic simple.
-  if (winner) {
-    GAME.winner = winner;
-    GAME.selectedUnitId = null;
-  } else {
-    switchTurn();
-  }
-
-  return true;
-}
-
-function attackSelected(attacker, target) {
-  if (!CombatRules.canAttack(attacker, target)) return false;
-
-  target.hp -= UNIT_DEFS[attacker.type].damage;
-  const attackerName = UNIT_DEFS[attacker.type].name;
-  const targetName = UNIT_DEFS[target.type].name;
-  addLog(
-    `${unitToPlayerName(attacker.player)} ${attackerName} attacked ${unitToPlayerName(target.player)} ${targetName}, HP left: ${Math.max(
-      target.hp,
-      0
-    )}`
-  );
-
-  cellMap[target.position.y][target.position.x].classList.add("attack-hit");
-
-  if (target.hp <= 0) {
-    GAME.units = GAME.units.filter((u) => u.id !== target.id);
-  }
-
-  const winner = checkLeaderDefeat();
-  if (winner) {
-    GAME.winner = winner;
-    GAME.selectedUnitId = null;
+function handleCardClick(cx, cy, unit) {
+  if (!GAME.pendingCard) return false;
+  const p = GAME.activePlayer;
+  if (GAME.pendingCard === "strike") {
+    GAME.strikeBuffByPlayer[p] = true;
+    consumeCard("strike");
+    addLog(`${playerLabel(p)} activated Strike: next attack +2 damage.`);
+    GAME.pendingCard = null;
     return true;
   }
-
-  switchTurn();
-  return true;
+  if (GAME.pendingCard === "guard") {
+    if (!unit || unit.player !== p) {
+      addLog("Guard card needs a friendly target.");
+      return true;
+    }
+    GAME.guardByUnitId[unit.id] = 2;
+    consumeCard("guard");
+    GAME.pendingCard = null;
+    addLog(`${playerLabel(p)} placed Guard on ${UNIT_DEFS[unit.type].name}.`);
+    return true;
+  }
+  if (GAME.pendingCard === "reposition") {
+    if (GAME.cardStep === "pick-unit") {
+      if (!unit || unit.player !== p) {
+        addLog("Pick a friendly unit for Reposition.");
+        return true;
+      }
+      GAME.selectedUnitId = unit.id;
+      GAME.cardStep = "pick-cell";
+      addLog("Now pick an empty destination up to 2 tiles away.");
+      return true;
+    }
+    if (GAME.cardStep === "pick-cell") {
+      const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
+      if (!selected) return true;
+      if (!isEmpty(cx, cy) || maxDiagDistance(selected.position.x, selected.position.y, cx, cy) > 2) {
+        addLog("Invalid Reposition destination.");
+        return true;
+      }
+      selected.position = { x: cx, y: cy };
+      consumeCard("reposition");
+      GAME.pendingCard = null;
+      GAME.cardStep = null;
+      addLog(`${playerLabel(p)} repositioned ${UNIT_DEFS[selected.type].name}.`);
+      return true;
+    }
+  }
+  return false;
 }
 
-function initUnits() {
-  GAME.units = [];
-
-  // Player 1 (top). y increases downward.
-  // Backline = Leader + Archers, Frontline = Infantry, Flanks = Cavalry.
-  GAME.units.push({ id: "p1-L", type: "L", player: 1, hp: UNIT_DEFS.L.hp, position: { x: 3, y: 0 } });
-  GAME.units.push({ id: "p1-I-1", type: "I", player: 1, hp: UNIT_DEFS.I.hp, position: { x: 2, y: 2 } });
-  GAME.units.push({ id: "p1-I-2", type: "I", player: 1, hp: UNIT_DEFS.I.hp, position: { x: 3, y: 2 } });
-  GAME.units.push({ id: "p1-I-3", type: "I", player: 1, hp: UNIT_DEFS.I.hp, position: { x: 4, y: 2 } });
-  GAME.units.push({ id: "p1-A-1", type: "A", player: 1, hp: UNIT_DEFS.A.hp, position: { x: 2, y: 1 } });
-  GAME.units.push({ id: "p1-A-2", type: "A", player: 1, hp: UNIT_DEFS.A.hp, position: { x: 4, y: 1 } });
-  GAME.units.push({ id: "p1-C", type: "C", player: 1, hp: UNIT_DEFS.C.hp, position: { x: 0, y: 2 } });
-
-  // Player 2 (bottom)
-  GAME.units.push({ id: "p2-L", type: "L", player: 2, hp: UNIT_DEFS.L.hp, position: { x: 4, y: 7 } });
-  GAME.units.push({ id: "p2-I-1", type: "I", player: 2, hp: UNIT_DEFS.I.hp, position: { x: 2, y: 5 } });
-  GAME.units.push({ id: "p2-I-2", type: "I", player: 2, hp: UNIT_DEFS.I.hp, position: { x: 3, y: 5 } });
-  GAME.units.push({ id: "p2-I-3", type: "I", player: 2, hp: UNIT_DEFS.I.hp, position: { x: 4, y: 5 } });
-  GAME.units.push({ id: "p2-A-1", type: "A", player: 2, hp: UNIT_DEFS.A.hp, position: { x: 2, y: 6 } });
-  GAME.units.push({ id: "p2-A-2", type: "A", player: 2, hp: UNIT_DEFS.A.hp, position: { x: 4, y: 6 } });
-  GAME.units.push({ id: "p2-C", type: "C", player: 2, hp: UNIT_DEFS.C.hp, position: { x: 7, y: 5 } });
+function applyAttack(attacker, target) {
+  const damage = computeDamage(attacker, target);
+  if (GAME.guardByUnitId[target.id]) {
+    GAME.guardByUnitId[target.id] -= damage;
+    if (GAME.guardByUnitId[target.id] <= 0) delete GAME.guardByUnitId[target.id];
+    addLog(`${playerLabel(attacker.player)} attack absorbed by Guard.`);
+  } else {
+    target.hp -= damage;
+    addLog(`${playerLabel(attacker.player)} ${UNIT_DEFS[attacker.type].name} hit ${UNIT_DEFS[target.type].name} for ${damage}.`);
+  }
+  if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
+  cellMap[target.position.y][target.position.x].classList.add("attack-hit");
+  if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
 }
 
-function resetGame() {
-  GAME.activePlayer = 1;
-  GAME.winner = null;
-  GAME.selectedUnitId = null;
-  GAME.units = [];
-  GAME.lastAction = "-";
-  GAME.actionLog = [];
-  initUnits();
-
-  addLog("New game started. P1 to act.");
+function takeActionAt(x, y) {
+  if (GAME.winner) return;
+  const unit = getUnitAt(x, y);
+  if (GAME.pendingCard) {
+    handleCardClick(x, y, unit);
+    rerender();
+    return;
+  }
+  if (unit) {
+    if (unit.player === GAME.activePlayer) {
+      GAME.selectedUnitId = GAME.selectedUnitId === unit.id ? null : unit.id;
+      addLog(`${playerLabel(unit.player)} ${UNIT_DEFS[unit.type].name} ${GAME.selectedUnitId ? "selected" : "deselected"}.`);
+      rerender();
+      return;
+    }
+    const attacker = GAME.units.find((u) => u.id === GAME.selectedUnitId);
+    if (!attacker || attacker.player !== GAME.activePlayer || !canAttack(attacker, unit)) {
+      addLog("Select a valid attacker first.");
+      rerender();
+      return;
+    }
+    applyAttack(attacker, unit);
+    const winner = checkWin();
+    if (winner) GAME.winner = winner;
+    else switchTurn();
+    rerender();
+    if (!GAME.winner) queueAiIfNeeded();
+    return;
+  }
+  const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
+  if (!selected || selected.player !== GAME.activePlayer || !canMoveTo(selected, x, y)) {
+    addLog("Invalid move.");
+    rerender();
+    return;
+  }
+  const from = { ...selected.position };
+  selected.position = { x, y };
+  addLog(`${playerLabel(selected.player)} moved ${UNIT_DEFS[selected.type].name} from (${from.x},${from.y}) to (${x},${y}).`);
+  const winner = checkWin();
+  if (winner) GAME.winner = winner;
+  else switchTurn();
   rerender();
+  if (!GAME.winner) queueAiIfNeeded();
+}
+
+function rerender() {
+  renderBoardCells();
+  highlightState();
+  renderStatus();
 }
 
 function createBoard() {
   cellMap = [];
   boardEl.innerHTML = "";
-
   boardEl.style.gridTemplateColumns = `repeat(${GAME.size}, var(--cell-size))`;
   boardEl.style.gridTemplateRows = `repeat(${GAME.size}, var(--cell-size))`;
-
   for (let y = 0; y < GAME.size; y++) {
     const row = [];
     for (let x = 0; x < GAME.size; x++) {
       const cell = document.createElement("div");
       cell.className = "cell";
-      cell.dataset.x = String(x);
-      cell.dataset.y = String(y);
-
-      cell.addEventListener("click", () => {
-        const cx = Number(cell.dataset.x);
-        const cy = Number(cell.dataset.y);
-        if (!withinGrid(cx, cy)) return;
-        const unit = getUnitAt(cx, cy);
-        console.log(`Cell clicked: (${cx},${cy}), occupied=${unit ? unit.type : "none"}`);
-
-        if (GAME.winner) {
-          addLog("Game over. Reset to start a new match.");
-          return;
-        }
-
-        if (unit) {
-          // Click your own unit -> select.
-          if (unit.player === GAME.activePlayer) {
-            if (GAME.selectedUnitId === unit.id) {
-              GAME.selectedUnitId = null;
-              addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} deselected.`);
-              rerender();
-              return;
-            }
-
-            GAME.selectedUnitId = unit.id;
-            addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} selected.`);
-            rerender();
-            return;
-          }
-
-          // Click enemy unit -> attack if you have an active selected unit.
-          const attacker = getUnitForSelection();
-          if (!attacker || attacker.player !== GAME.activePlayer) {
-            addLog(`It's ${unitToPlayerName(GAME.activePlayer)} turn. Select your own unit.`);
-            return;
-          }
-
-          const attacked = attackSelected(attacker, unit);
-          if (attacked) {
-            rerender();
-          } else {
-            addLog("Target is not attackable by selected unit.");
-          }
-          return;
-        }
-
-        // Click empty cell -> move (if a unit is selected and the move is valid).
-        const selected = getUnitForSelection();
-        if (!selected) {
-          addLog("Select a unit first.");
-          return;
-        }
-        if (selected.player !== GAME.activePlayer) {
-          addLog(`It's ${unitToPlayerName(GAME.activePlayer)} turn.`);
-          return;
-        }
-
-        const moved = moveSelectedTo(cx, cy);
-        if (moved) {
-          rerender();
-        } else {
-          addLog("Invalid move: tile is occupied or out of range.");
-        }
-      });
-
+      cell.addEventListener("click", () => takeActionAt(x, y));
       boardEl.appendChild(cell);
       row.push(cell);
     }
     cellMap.push(row);
   }
-
-  renderUnits();
-  highlightSelectedAndTargets();
 }
 
-function attachResetButton() {
-  if (!resetBtn) return;
-  resetBtn.addEventListener("click", () => {
-    resetGame();
-  });
+function initTerrain() {
+  GAME.terrain = {};
+  const mapByScenario = {
+    opening: [
+      [2, 3, "forest"],
+      [5, 4, "forest"],
+      [3, 3, "hill"],
+      [4, 4, "hill"],
+    ],
+    frontline: [
+      [2, 3, "hill"],
+      [3, 3, "hill"],
+      [4, 4, "forest"],
+      [5, 4, "forest"],
+    ],
+    flanks: [
+      [0, 3, "forest"],
+      [7, 4, "forest"],
+      [1, 2, "hill"],
+      [6, 5, "hill"],
+    ],
+    "leader-hunt": [
+      [3, 2, "forest"],
+      [4, 5, "forest"],
+      [3, 4, "hill"],
+      [4, 3, "hill"],
+    ],
+  };
+  for (const [x, y, type] of mapByScenario[GAME.scenario]) {
+    GAME.terrain[posKey(x, y)] = type;
+  }
+}
+
+function initUnits() {
+  GAME.units = [];
+  const base = [];
+  if (GAME.scenario === "opening") {
+    base.push(
+      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 3, 2], ["p1-I3", "I", 1, 4, 2],
+      ["p1-A1", "A", 1, 2, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C", "C", 1, 0, 2], ["p1-E", "E", 1, 6, 1], ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 2, 5], ["p2-I2", "I", 2, 3, 5], ["p2-I3", "I", 2, 4, 5],
+      ["p2-A1", "A", 2, 2, 6], ["p2-A2", "A", 2, 4, 6], ["p2-C", "C", 2, 7, 5], ["p2-E", "E", 2, 1, 6], ["p2-R", "R", 2, 0, 6]
+    );
+  } else if (GAME.scenario === "frontline") {
+    base.push(
+      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 3], ["p1-I2", "I", 1, 3, 3], ["p1-I3", "I", 1, 4, 3], ["p1-A1", "A", 1, 1, 2], ["p1-C", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 2],
+      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 2, 4], ["p2-I2", "I", 2, 3, 4], ["p2-I3", "I", 2, 4, 4], ["p2-A1", "A", 2, 6, 5], ["p2-C", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 5]
+    );
+  } else if (GAME.scenario === "flanks") {
+    base.push(
+      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 3, 2], ["p1-A1", "A", 1, 2, 1], ["p1-C1", "C", 1, 0, 3], ["p1-C2", "C", 1, 7, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 6, 0],
+      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 5, 6], ["p2-C1", "C", 2, 0, 5], ["p2-C2", "C", 2, 7, 4], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 1, 7]
+    );
+  } else {
+    base.push(
+      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+    );
+  }
+  for (const [id, type, player, x, y] of base) {
+    GAME.units.push({ id, type, player, hp: UNIT_DEFS[type].hp, position: { x, y } });
+  }
+}
+
+function resetMatch() {
+  GAME.activePlayer = 1;
+  GAME.winner = null;
+  GAME.selectedUnitId = null;
+  GAME.pendingCard = null;
+  GAME.cardStep = null;
+  GAME.cardUsedThisTurn = false;
+  GAME.strikeBuffByPlayer = { 1: false, 2: false };
+  GAME.guardByUnitId = {};
+  GAME.cardsByPlayer = {
+    1: { strike: 2, guard: 2, reposition: 2 },
+    2: { strike: 2, guard: 2, reposition: 2 },
+  };
+  GAME.lastAction = "-";
+  GAME.actionLog = [];
+  initTerrain();
+  initUnits();
+  addLog(`Scenario "${GAME.scenario}" started. ${playerLabel(GAME.activePlayer)} to act.`);
+  rerender();
+  queueAiIfNeeded();
+}
+
+function getNearestEnemy(unit) {
+  let best = null;
+  let bestD = Infinity;
+  for (const other of GAME.units) {
+    if (other.player === unit.player) continue;
+    const d = maxDiagDistance(unit.position.x, unit.position.y, other.position.x, other.position.y);
+    if (d < bestD) {
+      bestD = d;
+      best = other;
+    }
+  }
+  return best;
+}
+
+function aiTurn() {
+  if (GAME.winner || GAME.mode !== "ai" || GAME.activePlayer !== 2) return;
+  const aiUnits = GAME.units.filter((u) => u.player === 2);
+  for (const u of aiUnits) {
+    const targets = attackTargets(u);
+    if (targets.length) {
+      GAME.selectedUnitId = u.id;
+      applyAttack(u, targets[0]);
+      const winner = checkWin();
+      if (winner) GAME.winner = winner;
+      else switchTurn();
+      rerender();
+      return;
+    }
+  }
+  for (const u of aiUnits) {
+    const nearEnemy = getNearestEnemy(u);
+    if (!nearEnemy) continue;
+    const moves = movementTargets(u);
+    if (!moves.length) continue;
+    moves.sort(
+      (a, b) =>
+        maxDiagDistance(a.x, a.y, nearEnemy.position.x, nearEnemy.position.y) -
+        maxDiagDistance(b.x, b.y, nearEnemy.position.x, nearEnemy.position.y)
+    );
+    u.position = { x: moves[0].x, y: moves[0].y };
+    addLog(`AI moved ${UNIT_DEFS[u.type].name}.`);
+    const winner = checkWin();
+    if (winner) GAME.winner = winner;
+    else switchTurn();
+    rerender();
+    return;
+  }
+  addLog("AI skipped turn.");
+  switchTurn();
+  rerender();
+}
+
+function queueAiIfNeeded() {
+  if (GAME.mode === "ai" && GAME.activePlayer === 2 && !GAME.winner) {
+    window.setTimeout(aiTurn, 500);
+  }
 }
 
 function attachRulesDialog() {
-  if (!rulesBtn || !rulesDialogEl || !closeRulesBtn) return;
-
-  rulesBtn.addEventListener("click", () => {
-    if (typeof rulesDialogEl.showModal === "function") {
-      rulesDialogEl.showModal();
-    }
-  });
-
-  closeRulesBtn.addEventListener("click", () => {
-    rulesDialogEl.close();
-  });
-
-  rulesDialogEl.addEventListener("click", (event) => {
-    const rect = rulesDialogEl.getBoundingClientRect();
-    const isInDialog =
-      event.clientX >= rect.left &&
-      event.clientX <= rect.right &&
-      event.clientY >= rect.top &&
-      event.clientY <= rect.bottom;
-    if (!isInDialog) {
-      rulesDialogEl.close();
-    }
-  });
+  rulesBtn.addEventListener("click", () => rulesDialogEl.showModal());
+  closeRulesBtn.addEventListener("click", () => rulesDialogEl.close());
 }
 
 function initUI() {
@@ -464,48 +596,34 @@ function initUI() {
   resetBtn = document.getElementById("resetBtn");
   rulesDialogEl = document.getElementById("rulesDialog");
   closeRulesBtn = document.getElementById("closeRulesBtn");
+  modeSelectEl = document.getElementById("modeSelect");
+  scenarioSelectEl = document.getElementById("scenarioSelect");
+  fogToggleEl = document.getElementById("fogToggle");
+  phaseStateEl = document.getElementById("phaseState");
+  bonusStateEl = document.getElementById("bonusState");
+  cardsStateEl = document.getElementById("cardsState");
 
-  renderStatus();
-}
-
-function initGameInteractions() {
-  // We already attach click handlers per-cell in createBoard().
-}
-
-function setupAttackOnEnemyClick() {
-  // Requirement: "Click enemy unit in range → attack"
-  // We handle this in the same per-cell click handler by treating occupied cells as "unit clicks".
-  // The handler currently ignores non-active units for selection, so we need to attempt an attack here.
-  // We'll implement by overriding the click behavior: simplest is to add a separate handler on the unit area.
-}
-
-function patchBoardClickHandlerForAttacks() {
-  // Instead of complicating per-cell listeners, we implement attacks by allowing clicks on enemy units
-  // when there's an active selected unit from the current player.
-  // We'll do this by adding a single click listener to the board and using event bubbling.
-  // To avoid double-handling, we don't remove the per-cell listeners; we rely on this board listener
-  // only when the target cell was not handled to return early.
-}
-
-function installAttackBehaviorInCellClick() {
-  // During creation, the handler already captures unit and returns early for non-active units.
-  // To keep changes localized and correct, we actually rework movement/attack in place by refactoring
-  // the selection logic. However, we already shipped a version above: we’ll integrate attack behavior
-  // by changing the handler at the time of cell creation.
+  resetBtn.addEventListener("click", resetMatch);
+  modeSelectEl.addEventListener("change", () => {
+    GAME.mode = modeSelectEl.value;
+    resetMatch();
+  });
+  scenarioSelectEl.addEventListener("change", () => {
+    GAME.scenario = scenarioSelectEl.value;
+    resetMatch();
+  });
+  fogToggleEl.addEventListener("change", () => {
+    GAME.fogEnabled = fogToggleEl.checked;
+    rerender();
+  });
 }
 
 function main() {
   initUI();
   createBoard();
-  initUnits();
   attachRulesDialog();
-  attachResetButton();
-  addLog("New game started. P1 to act.");
-  rerender();
+  resetMatch();
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Ensure UI is ready.
-  main();
-});
+document.addEventListener("DOMContentLoaded", main);
 
