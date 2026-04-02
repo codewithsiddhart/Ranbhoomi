@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ranbhoomi (Phase 1 Prototype)</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="board-wrap">
+        <h1 class="title">Ranbhoomi - Phase 1</h1>
+        <div class="status">
+          <div>
+            Current Player:
+            <strong id="currentPlayerLabel">P1</strong>
+          </div>
+          <div id="winnerLabel" class="winner hidden"></div>
+        </div>
+
+        <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-section">
+          <h2>How to Play</h2>
+          <div class="hint">
+            Click your unit to select. Click a highlighted empty cell to move.
+            Click an enemy unit in range to attack.
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Last Action</h2>
+          <div id="lastAction" class="last-action">-</div>
+        </div>
+
+        <div class="panel-section">
+          <h2>Action Log</h2>
+          <ol id="actionLog" class="action-log"></ol>
+        </div>
+
+        <div class="panel-section">
+          <h2>Debug</h2>
+          <div class="hint">
+            Cell coordinates are logged to the browser console on click (for testing).
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
+
