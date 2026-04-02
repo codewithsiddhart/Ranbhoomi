@@ -46,10 +46,32 @@ body {
   margin-bottom: 10px;
 }
 
+.turn-banner {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.turn-banner.p1 {
+  background: rgba(43, 108, 255, 0.25);
+  color: #dce8ff;
+}
+
+.turn-banner.p2 {
+  background: rgba(255, 59, 59, 0.22);
+  color: #ffe0e0;
+}
+
 .winner {
   font-size: 16px;
   color: #7CFC00;
   font-weight: 800;
+  padding: 8px 10px;
+  border: 1px solid rgba(124, 252, 0, 0.35);
+  border-radius: 8px;
+  background: rgba(124, 252, 0, 0.12);
 }
 
 .hidden {
@@ -87,6 +109,10 @@ body {
   outline: 3px solid var(--selected);
 }
 
+.cell.selected .unit .letter {
+  background: rgba(255, 255, 120, 0.2);
+}
+
 .cell.move-target {
   background: var(--move);
   border-color: rgba(43, 108, 255, 0.4);
@@ -95,6 +121,24 @@ body {
 .cell.attack-target {
   background: var(--attack);
   border-color: rgba(255, 59, 59, 0.4);
+}
+
+.cell.attack-hit {
+  animation: hit-flash 220ms ease-in-out;
+}
+
+@keyframes hit-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 84, 84, 0.2);
+    border-color: rgba(255, 84, 84, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(255, 84, 84, 0.45);
+    border-color: rgba(255, 130, 130, 0.95);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 84, 84, 0.1);
+  }
 }
 
 .unit {

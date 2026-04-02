@@ -26,6 +26,7 @@ const UNIT_LETTER_BY_TYPE = {
 let cellMap = [];
 let boardEl;
 let currentPlayerLabel;
+let turnBannerEl;
 let winnerLabel;
 let lastActionEl;
 let actionLogEl;
@@ -55,40 +56,69 @@ function ChebyshevRange(x1, y1, x2, y2, minInclusive, maxInclusive) {
   return d >= minInclusive && d <= maxInclusive;
 }
 
-function getMovementTargets(unit) {
-  const def = UNIT_DEFS[unit.type];
-  const moveDist = def.move;
-  const targets = [];
+const MovementRules = {
+  getTargets(unit) {
+    const def = UNIT_DEFS[unit.type];
+    const moveDist = def.move;
+    const targets = [];
 
-  for (let y = 0; y < GAME.size; y++) {
-    for (let x = 0; x < GAME.size; x++) {
-      if (!withinGrid(x, y)) continue;
-      if (!isEmpty(x, y)) continue;
-      const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
-      if (d === moveDist) targets.push({ x, y });
-    }
-  }
-
-  return targets;
-}
-
-function getAttackTargets(unit) {
-  const def = UNIT_DEFS[unit.type];
-  const targets = [];
-
-  for (const other of GAME.units) {
-    if (other.player === unit.player) continue;
-    if (UNIT_DEFS[unit.type].melee) {
-      if (maxDiagDistance(unit.position.x, unit.position.y, other.position.x, other.position.y) === 1) targets.push(other);
-    } else if (def.archer) {
-      if (ChebyshevRange(unit.position.x, unit.position.y, other.position.x, other.position.y, def.archerRange[0], def.archerRange[1])) {
-        targets.push(other);
+    for (let y = 0; y < GAME.size; y++) {
+      for (let x = 0; x < GAME.size; x++) {
+        if (!withinGrid(x, y)) continue;
+        if (!isEmpty(x, y)) continue;
+        const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
+        if (d === moveDist) targets.push({ x, y });
       }
     }
-  }
 
-  return targets;
-}
+    return targets;
+  },
+  canMoveTo(unit, x, y) {
+    if (!withinGrid(x, y)) return false;
+    if (!isEmpty(x, y)) return false;
+    const def = UNIT_DEFS[unit.type];
+    const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
+    return d === def.move;
+  },
+};
+
+const CombatRules = {
+  getTargets(unit) {
+    const def = UNIT_DEFS[unit.type];
+    const targets = [];
+
+    for (const other of GAME.units) {
+      if (other.player === unit.player) continue;
+      if (UNIT_DEFS[unit.type].melee) {
+        if (maxDiagDistance(unit.position.x, unit.position.y, other.position.x, other.position.y) === 1) targets.push(other);
+      } else if (def.archer) {
+        if (ChebyshevRange(unit.position.x, unit.position.y, other.position.x, other.position.y, def.archerRange[0], def.archerRange[1])) {
+          targets.push(other);
+        }
+      }
+    }
+
+    return targets;
+  },
+  canAttack(attacker, target) {
+    if (!attacker || !target) return false;
+    if (attacker.player === target.player) return false;
+
+    const def = UNIT_DEFS[attacker.type];
+    if (def.melee) return maxDiagDistance(attacker.position.x, attacker.position.y, target.position.x, target.position.y) === 1;
+    if (def.archer) {
+      return ChebyshevRange(
+        attacker.position.x,
+        attacker.position.y,
+        target.position.x,
+        target.position.y,
+        def.archerRange[0],
+        def.archerRange[1]
+      );
+    }
+    return false;
+  },
+};
 
 function unitToPlayerName(player) {
   return player === 1 ? "P1" : "P2";
@@ -97,7 +127,7 @@ function unitToPlayerName(player) {
 function addLog(line) {
   GAME.lastAction = line;
   GAME.actionLog.unshift(line);
-  GAME.actionLog = GAME.actionLog.slice(0, 30);
+  GAME.actionLog = GAME.actionLog.slice(0, 12);
   lastActionEl.textContent = GAME.lastAction;
 
   // Keep the log simple: re-render items.
@@ -112,7 +142,7 @@ function addLog(line) {
 function clearHighlights() {
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
-      cellMap[y][x].classList.remove("selected", "move-target", "attack-target");
+      cellMap[y][x].classList.remove("selected", "move-target", "attack-target", "attack-hit");
     }
   }
 }
@@ -127,12 +157,12 @@ function highlightSelectedAndTargets() {
 
   cellMap[selected.position.y][selected.position.x].classList.add("selected");
 
-  const movementTargets = getMovementTargets(selected);
+  const movementTargets = MovementRules.getTargets(selected);
   for (const t of movementTargets) {
     cellMap[t.y][t.x].classList.add("move-target");
   }
 
-  const attackTargets = getAttackTargets(selected);
+  const attackTargets = CombatRules.getTargets(selected);
   for (const t of attackTargets) {
     cellMap[t.position.y][t.position.x].classList.add("attack-target");
   }
@@ -173,12 +203,17 @@ function renderBoardCoordinatesInConsole() {
 
 function renderStatus() {
   currentPlayerLabel.textContent = unitToPlayerName(GAME.activePlayer);
+  turnBannerEl.classList.remove("p1", "p2");
+  turnBannerEl.classList.add(GAME.activePlayer === 1 ? "p1" : "p2");
+
   if (!GAME.winner) {
     winnerLabel.classList.add("hidden");
     winnerLabel.textContent = "";
+    turnBannerEl.classList.remove("hidden");
   } else {
     winnerLabel.classList.remove("hidden");
-    winnerLabel.textContent = `${unitToPlayerName(GAME.winner)} wins! (Leader defeated)`;
+    winnerLabel.textContent = `${unitToPlayerName(GAME.winner)} WINS! Leader defeated.`;
+    turnBannerEl.classList.add("hidden");
   }
 }
 
@@ -207,32 +242,15 @@ function checkLeaderDefeat() {
   return null;
 }
 
-function canMoveTo(unit, x, y) {
-  if (!withinGrid(x, y)) return false;
-  if (!isEmpty(x, y)) return false;
-  const def = UNIT_DEFS[unit.type];
-  const d = maxDiagDistance(unit.position.x, unit.position.y, x, y);
-  return d === def.move;
-}
-
-function canAttackTarget(attacker, target) {
-  if (!attacker || !target) return false;
-  if (attacker.player === target.player) return false;
-
-  const def = UNIT_DEFS[attacker.type];
-  if (def.melee) return maxDiagDistance(attacker.position.x, attacker.position.y, target.position.x, target.position.y) === 1;
-  if (def.archer) return ChebyshevRange(attacker.position.x, attacker.position.y, target.position.x, target.position.y, def.archerRange[0], def.archerRange[1]);
-  return false;
-}
-
 function moveSelectedTo(x, y) {
   const unit = getUnitForSelection();
   if (!unit) return false;
   if (unit.player !== GAME.activePlayer) return false;
-  if (!canMoveTo(unit, x, y)) return false;
+  if (!MovementRules.canMoveTo(unit, x, y)) return false;
 
+  const from = { x: unit.position.x, y: unit.position.y };
   unit.position = { x, y };
-  addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} moved to (${x},${y})`);
+  addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} moved from (${from.x},${from.y}) to (${x},${y})`);
   const winner = checkLeaderDefeat(); // Movement can't kill leaders, but keep logic simple.
   if (winner) {
     GAME.winner = winner;
@@ -245,12 +263,19 @@ function moveSelectedTo(x, y) {
 }
 
 function attackSelected(attacker, target) {
-  if (!canAttackTarget(attacker, target)) return false;
+  if (!CombatRules.canAttack(attacker, target)) return false;
 
   target.hp -= UNIT_DEFS[attacker.type].damage;
   const attackerName = UNIT_DEFS[attacker.type].name;
   const targetName = UNIT_DEFS[target.type].name;
-  addLog(`${unitToPlayerName(attacker.player)} ${attackerName} attacked ${unitToPlayerName(target.player)} ${targetName} (${target.hp <= 0 ? "killed" : `HP now ${target.hp}`})`);
+  addLog(
+    `${unitToPlayerName(attacker.player)} ${attackerName} attacked ${unitToPlayerName(target.player)} ${targetName}, HP left: ${Math.max(
+      target.hp,
+      0
+    )}`
+  );
+
+  cellMap[target.position.y][target.position.x].classList.add("attack-hit");
 
   if (target.hp <= 0) {
     GAME.units = GAME.units.filter((u) => u.id !== target.id);
@@ -321,41 +346,64 @@ function createBoard() {
       cell.addEventListener("click", () => {
         const cx = Number(cell.dataset.x);
         const cy = Number(cell.dataset.y);
+        if (!withinGrid(cx, cy)) return;
         const unit = getUnitAt(cx, cy);
         console.log(`Cell clicked: (${cx},${cy}), occupied=${unit ? unit.type : "none"}`);
 
-        if (GAME.winner) return;
+        if (GAME.winner) {
+          addLog("Game over. Reset to start a new match.");
+          return;
+        }
 
         if (unit) {
           // Click your own unit -> select.
           if (unit.player === GAME.activePlayer) {
             if (GAME.selectedUnitId === unit.id) {
               GAME.selectedUnitId = null;
+              addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} deselected.`);
               rerender();
               return;
             }
 
             GAME.selectedUnitId = unit.id;
+            addLog(`${unitToPlayerName(unit.player)} ${UNIT_DEFS[unit.type].name} selected.`);
             rerender();
             return;
           }
 
           // Click enemy unit -> attack if you have an active selected unit.
           const attacker = getUnitForSelection();
-          if (!attacker || attacker.player !== GAME.activePlayer) return;
+          if (!attacker || attacker.player !== GAME.activePlayer) {
+            addLog(`It's ${unitToPlayerName(GAME.activePlayer)} turn. Select your own unit.`);
+            return;
+          }
 
           const attacked = attackSelected(attacker, unit);
-          if (attacked) rerender();
+          if (attacked) {
+            rerender();
+          } else {
+            addLog("Target is not attackable by selected unit.");
+          }
           return;
         }
 
         // Click empty cell -> move (if a unit is selected and the move is valid).
         const selected = getUnitForSelection();
-        if (!selected) return;
-        if (selected.player !== GAME.activePlayer) return;
+        if (!selected) {
+          addLog("Select a unit first.");
+          return;
+        }
+        if (selected.player !== GAME.activePlayer) {
+          addLog(`It's ${unitToPlayerName(GAME.activePlayer)} turn.`);
+          return;
+        }
 
         const moved = moveSelectedTo(cx, cy);
-        if (moved) rerender();
+        if (moved) {
+          rerender();
+        } else {
+          addLog("Invalid move: tile is occupied or out of range.");
+        }
       });
 
       boardEl.appendChild(cell);
@@ -375,6 +423,7 @@ function attachResetButton() {
 function initUI() {
   boardEl = document.getElementById("board");
   currentPlayerLabel = document.getElementById("currentPlayerLabel");
+  turnBannerEl = document.getElementById("turnBanner");
   winnerLabel = document.getElementById("winnerLabel");
   lastActionEl = document.getElementById("lastAction");
   actionLogEl = document.getElementById("actionLog");
