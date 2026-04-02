@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
     <main class="app">
       <section id="homeScreen" class="screen home-screen">
         <div class="home-particles" aria-hidden="true">
@@ -38,6 +39,15 @@
             <span class="formation p2 f3"></span>
             <div class="battle-glow"></div>
             <div class="battle-dust"></div>
+            <button type="button" class="home-hotspot home-tree" data-home-bonus="strike" title="Ancient tree" aria-label="Ancient tree — click for a blessing">
+              🌳
+            </button>
+            <button type="button" class="home-hotspot home-tent" data-home-bonus="strike" title="War camp" aria-label="War camp — click for a blessing">
+              ⛺
+            </button>
+            <button type="button" class="home-hotspot home-river" data-home-bonus="strike" title="River" aria-label="River — click for a blessing">
+              🌊
+            </button>
           </div>
         </section>
 
@@ -78,6 +88,7 @@
             <div id="turnBanner" class="turn-banner p1">
               Turn: <strong id="currentPlayerLabel">P1</strong>
             </div>
+            <p id="eventBanner" class="event-banner">Field clear — command your line.</p>
             <div id="winnerLabel" class="winner hidden"></div>
           </div>
           <div class="top-controls">
@@ -132,6 +143,7 @@
               <h3>Phase + Formation</h3>
               <div id="phaseState" class="hint"></div>
               <div id="bonusState" class="hint"></div>
+              <div id="momentumState" class="hint momentum-hint"></div>
             </div>
             <div class="panel-section">
               <h3>Cards</h3>
@@ -146,11 +158,12 @@
             </div>
             <ul class="rules-list">
               <li>Defeat the enemy Leader to win.</li>
-              <li>Infantry holds lines, cavalry rotates quickly.</li>
-              <li>Archers shoot from range 2-3.</li>
-              <li>Forest reduces incoming archer damage.</li>
-              <li>Hill boosts archer attacks.</li>
-              <li>One card can be used each turn.</li>
+              <li>Pandav morale: +1 damage within 2 tiles of your Leader.</li>
+              <li>Kaurav fear: enemy Pandav units beside the Kaurav Leader lose 1 move.</li>
+              <li>Rivers: only Cavalry and Chariots may occupy; melee in a river is weaker.</li>
+              <li>Mud slows movement from that tile; wind and mud random events tweak damage.</li>
+              <li>Momentum: chain attacks or survive hits — at 2+ streak, +1 damage.</li>
+              <li>On the home map, click tree, tent, or river for a one-time first-strike boon.</li>
             </ul>
           </aside>
         </div>
@@ -191,7 +204,10 @@
           <ul>
             <li>Formations: Line and Surround give combat bonuses.</li>
             <li>Cards: Strike, Guard, and Reposition (limited charges).</li>
-            <li>Terrain: Forest and Hill affect damage or defense.</li>
+            <li>Terrain: Forest, Hill, River, and Mud — each changes movement or combat.</li>
+            <li>Leader auras: Pandav morale (attack) and Kaurav intimidation (enemy move).</li>
+            <li>Momentum rewards repeated attacks or successful defense.</li>
+            <li>Random wind or battlefield mud can slightly shift damage each turn.</li>
             <li>Fog of War toggle to hide enemy information at distance.</li>
             <li>Mode select supports local multiplayer and AI opponent.</li>
           </ul>

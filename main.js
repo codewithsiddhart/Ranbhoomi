@@ -8,6 +8,7 @@ const GAME = {
   selectedUnitId: null,
   units: [],
   terrain: {},
+  mudTiles: {},
   lastAction: "-",
   actionLog: [],
   cardUsedThisTurn: false,
@@ -21,6 +22,10 @@ const GAME = {
   },
   animations: { attackerId: null, targetId: null, archerImpact: null },
   selectedScenarioLabel: "Opening Formation",
+  momentumByUnitId: {},
+  turnEventMessage: null,
+  turnCombatBonus: { archer: 0, melee: 0 },
+  firstStrikeBonusP1: 0,
 };
 
 const UNIT_DEFS = {
@@ -33,6 +38,20 @@ const UNIT_DEFS = {
 };
 
 const UNIT_ICON_BY_TYPE = { L: "👑", I: "🛡️", A: "🏹", C: "🐎", E: "🐘", R: "🛞" };
+
+const LOG_ICON = {
+  move: "🧭",
+  attack: "⚔️",
+  hit: "💥",
+  card: "🎴",
+  event: "🌪️",
+  morale: "✨",
+  leader: "👑",
+  terrain: "🗺️",
+  turn: "🔁",
+  info: "📜",
+  cheer: "🎖️",
+};
 const UNIT_IMAGE_BY_TYPE = { R: "assets/chariot.svg" };
 const SCENARIO_PREVIEW_META = {
   opening: {
@@ -88,9 +107,127 @@ let themeSelectEl;
 let battleMapPreviewEl;
 let battlePreviewTitleEl;
 let battlePreviewDescEl;
+let momentumStateEl;
+let eventBannerEl;
+let toastEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
+}
+
+function getLeader(player) {
+  return GAME.units.find((u) => u.player === player && u.type === "L") || null;
+}
+
+function getMoraleDamageBonus(attacker) {
+  if (attacker.player !== 1) return 0;
+  const leader = getLeader(1);
+  if (!leader) return 0;
+  return maxDiagDistance(attacker.position.x, attacker.position.y, leader.position.x, leader.position.y) <= 2 ? 1 : 0;
+}
+
+function getIntimidationMovePenalty(unit) {
+  if (unit.player !== 1) return 0;
+  const kaurav = getLeader(2);
+  if (!kaurav) return 0;
+  return maxDiagDistance(unit.position.x, unit.position.y, kaurav.position.x, kaurav.position.y) <= 1 ? 1 : 0;
+}
+
+function getEffectiveMove(unit) {
+  let m = UNIT_DEFS[unit.type].move;
+  m -= getIntimidationMovePenalty(unit);
+  if (GAME.mudTiles[posKey(unit.position.x, unit.position.y)]) m -= 1;
+  return Math.max(1, m);
+}
+
+function canOccupyTerrain(unit, x, y) {
+  const t = getTerrainAt(x, y);
+  if (t === "river" && unit.type !== "C" && unit.type !== "R") return false;
+  return true;
+}
+
+function getMomentumBonus(attacker) {
+  const st = GAME.momentumByUnitId[attacker.id];
+  if (!st || st.count < 2) return 0;
+  return 1;
+}
+
+function bumpMomentum(unit, kind) {
+  const prev = GAME.momentumByUnitId[unit.id] || { count: 0, kind: null };
+  if (prev.kind === kind) prev.count += 1;
+  else {
+    prev.count = 1;
+    prev.kind = kind;
+  }
+  GAME.momentumByUnitId[unit.id] = prev;
+}
+
+function clearMomentum(unitId) {
+  delete GAME.momentumByUnitId[unitId];
+}
+
+function countThreatsAgainst(unit) {
+  let n = 0;
+  const viewer = unit.player;
+  for (const other of GAME.units) {
+    if (!other || other.player === unit.player) continue;
+    if (GAME.fogEnabled && !isVisibleToPlayer(other.position.x, other.position.y, viewer)) continue;
+    if (canAttack(other, unit)) n += 1;
+  }
+  return n;
+}
+
+function hpTier(unit) {
+  const maxHp = UNIT_DEFS[unit.type].hp;
+  const ratio = unit.hp / maxHp;
+  if (ratio <= 0.35) return "low";
+  if (ratio <= 0.65) return "mid";
+  return "high";
+}
+
+function readHomeBonus() {
+  try {
+    const raw = sessionStorage.getItem("ranbhoomiHomeBonus");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+function consumeHomeBonus() {
+  const b = readHomeBonus();
+  if (!b || !b.strike) return false;
+  sessionStorage.removeItem("ranbhoomiHomeBonus");
+  return true;
+}
+
+function showToast(message, ms = 2600) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add("visible");
+  window.clearTimeout(showToast._t);
+  showToast._t = window.setTimeout(() => toastEl.classList.remove("visible"), ms);
+}
+
+function onTurnStart() {
+  GAME.turnEventMessage = null;
+  GAME.turnCombatBonus = { archer: 0, melee: 0 };
+  if (GAME.winner) return;
+  if (Math.random() < 0.13) {
+    const r = Math.random();
+    if (r < 0.5) {
+      GAME.turnCombatBonus.archer = 1;
+      GAME.turnEventMessage = "Sudden wind — your archers strike with extra force this turn.";
+    } else {
+      GAME.turnCombatBonus.melee = -1;
+      GAME.turnEventMessage = "Mud and churned earth — melee hits slip (-1 damage this turn).";
+    }
+    addLog({ icon: LOG_ICON.event, text: GAME.turnEventMessage });
+  }
+  if (eventBannerEl) {
+    eventBannerEl.textContent = GAME.turnEventMessage || "Field clear — command your line.";
+  }
 }
 
 function withinGrid(x, y) {
@@ -113,15 +250,29 @@ function playerLabel(player) {
   return player === 1 ? "P1" : "P2";
 }
 
-function addLog(line) {
+function addLog(lineOrEntry) {
+  const entry =
+    typeof lineOrEntry === "string"
+      ? { icon: LOG_ICON.info, text: lineOrEntry }
+      : { icon: lineOrEntry.icon || LOG_ICON.info, text: lineOrEntry.text };
+  const line = `${entry.icon} ${entry.text}`;
   GAME.lastAction = line;
-  GAME.actionLog.unshift(line);
-  GAME.actionLog = GAME.actionLog.slice(0, 14);
-  lastActionEl.textContent = GAME.lastAction;
+  GAME.actionLog.unshift(entry);
+  GAME.actionLog = GAME.actionLog.slice(0, 16);
+  lastActionEl.textContent = line;
   actionLogEl.innerHTML = "";
   for (const item of GAME.actionLog) {
     const li = document.createElement("li");
-    li.textContent = item;
+    li.className = "log-row";
+    const ic = document.createElement("span");
+    ic.className = "log-icon";
+    ic.setAttribute("aria-hidden", "true");
+    ic.textContent = item.icon || LOG_ICON.info;
+    const tx = document.createElement("span");
+    tx.className = "log-text";
+    tx.textContent = item.text;
+    li.appendChild(ic);
+    li.appendChild(tx);
     actionLogEl.appendChild(li);
   }
 }
@@ -259,11 +410,12 @@ function getSurroundBonus(attacker, target) {
 }
 
 function movementTargets(unit) {
-  const moveDist = UNIT_DEFS[unit.type].move;
+  const moveDist = getEffectiveMove(unit);
   const out = [];
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
       if (!isEmpty(x, y)) continue;
+      if (!canOccupyTerrain(unit, x, y)) continue;
       if (maxDiagDistance(unit.position.x, unit.position.y, x, y) === moveDist) out.push({ x, y });
     }
   }
@@ -272,7 +424,8 @@ function movementTargets(unit) {
 
 function canMoveTo(unit, x, y) {
   if (!withinGrid(x, y) || !isEmpty(x, y)) return false;
-  return maxDiagDistance(unit.position.x, unit.position.y, x, y) === UNIT_DEFS[unit.type].move;
+  if (!canOccupyTerrain(unit, x, y)) return false;
+  return maxDiagDistance(unit.position.x, unit.position.y, x, y) === getEffectiveMove(unit);
 }
 
 function canAttack(attacker, target) {
@@ -297,7 +450,29 @@ function computeDamage(attacker, target) {
     getTerrainAt(attacker.position.x, attacker.position.y) === "hill" && attacker.type === "A" ? 1 : 0;
   const forestShield =
     getTerrainAt(target.position.x, target.position.y) === "forest" && attacker.type === "A" ? 1 : 0;
-  return Math.max(1, base + lineBonus + surroundBonus + strikeBonus + hillBonus - forestShield);
+  const moraleBonus = getMoraleDamageBonus(attacker);
+  const momentumBonus = getMomentumBonus(attacker);
+  const homeBonus = attacker.player === 1 && GAME.firstStrikeBonusP1 > 0 ? 1 : 0;
+  const isMelee = UNIT_DEFS[attacker.type].melee;
+  const eventMelee = isMelee ? GAME.turnCombatBonus.melee : 0;
+  const eventArcher = attacker.type === "A" ? GAME.turnCombatBonus.archer : 0;
+  const riverPenalty =
+    getTerrainAt(attacker.position.x, attacker.position.y) === "river" && isMelee ? 1 : 0;
+  let total =
+    base +
+    lineBonus +
+    surroundBonus +
+    strikeBonus +
+    hillBonus -
+    forestShield +
+    moraleBonus +
+    momentumBonus +
+    homeBonus +
+    eventMelee +
+    eventArcher -
+    riverPenalty;
+  total = Math.max(1, total);
+  return total;
 }
 
 function checkWin() {
@@ -315,13 +490,43 @@ function checkWin() {
 function clearHighlights() {
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
-      cellMap[y][x].classList.remove("selected", "move-target", "attack-target", "attack-hit", "fog-hidden");
+      cellMap[y][x].classList.remove(
+        "selected",
+        "move-target",
+        "attack-target",
+        "attack-hit",
+        "fog-hidden",
+        "intimidation-zone",
+        "morale-aura"
+      );
     }
   }
 }
 
 function highlightState() {
   clearHighlights();
+  const pandav = getLeader(1);
+  if (pandav && (!GAME.fogEnabled || isVisibleToPlayer(pandav.position.x, pandav.position.y, GAME.activePlayer))) {
+    for (let y = 0; y < GAME.size; y++) {
+      for (let x = 0; x < GAME.size; x++) {
+        if (GAME.fogEnabled && !isVisibleToPlayer(x, y, GAME.activePlayer)) continue;
+        if (maxDiagDistance(x, y, pandav.position.x, pandav.position.y) <= 2) {
+          cellMap[y][x].classList.add("morale-aura");
+        }
+      }
+    }
+  }
+  const kaurav = getLeader(2);
+  if (kaurav && (!GAME.fogEnabled || isVisibleToPlayer(kaurav.position.x, kaurav.position.y, GAME.activePlayer))) {
+    for (let y = 0; y < GAME.size; y++) {
+      for (let x = 0; x < GAME.size; x++) {
+        if (GAME.fogEnabled && !isVisibleToPlayer(x, y, GAME.activePlayer)) continue;
+        if (maxDiagDistance(x, y, kaurav.position.x, kaurav.position.y) === 1) {
+          cellMap[y][x].classList.add("intimidation-zone");
+        }
+      }
+    }
+  }
   const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
   if (selected) {
     cellMap[selected.position.y][selected.position.x].classList.add("selected");
@@ -342,10 +547,12 @@ function renderBoardCells() {
     for (let x = 0; x < GAME.size; x++) {
       const cell = cellMap[y][x];
       cell.innerHTML = "";
-      cell.classList.remove("terrain-forest", "terrain-hill");
+      cell.classList.remove("terrain-forest", "terrain-hill", "terrain-river", "terrain-mud");
       const terrain = getTerrainAt(x, y);
       if (terrain === "forest") cell.classList.add("terrain-forest");
       if (terrain === "hill") cell.classList.add("terrain-hill");
+      if (terrain === "river") cell.classList.add("terrain-river");
+      if (GAME.mudTiles[posKey(x, y)]) cell.classList.add("terrain-mud");
     }
   }
   for (const u of GAME.units) {
@@ -354,6 +561,11 @@ function renderBoardCells() {
     const cell = cellMap[u.position.y][u.position.x];
     const unitEl = document.createElement("div");
     unitEl.className = `unit ${u.player === 1 ? "p1" : "p2"}`;
+    unitEl.classList.add(`hp-${hpTier(u)}`);
+    const mom = GAME.momentumByUnitId[u.id];
+    if (mom && mom.count >= 2) unitEl.classList.add("unit-momentum");
+    if (getMoraleDamageBonus(u) > 0) unitEl.classList.add("unit-morale");
+    if (countThreatsAgainst(u) > 0) unitEl.classList.add("unit-threat");
     if (GAME.animations.attackerId === u.id) unitEl.classList.add("anim-attack");
     if (GAME.animations.targetId === u.id) unitEl.classList.add("anim-hit");
     const letter = document.createElement("div");
@@ -372,7 +584,8 @@ function renderBoardCells() {
     name.textContent = UNIT_DEFS[u.type].name;
     const hp = document.createElement("div");
     hp.className = "hp";
-    hp.textContent = `HP ${u.hp}${GAME.guardByUnitId[u.id] ? " +Guard" : ""}`;
+    const momTxt = mom && mom.count >= 1 ? ` · Mo ${mom.count}` : "";
+    hp.textContent = `HP ${u.hp}${GAME.guardByUnitId[u.id] ? " +Guard" : ""}${momTxt}`;
     unitEl.appendChild(letter);
     unitEl.appendChild(name);
     unitEl.appendChild(hp);
@@ -396,10 +609,21 @@ function renderStatus() {
     turnBannerEl.classList.remove("hidden");
     winnerLabel.classList.add("hidden");
   }
-  phaseStateEl.textContent = `Scenario: ${GAME.selectedScenarioLabel} | Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain + Fog + Abilities active`;
+  phaseStateEl.textContent = `Scenario: ${GAME.selectedScenarioLabel} | Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain, leaders, momentum, optional fog`;
   const p1Line = getFormationBonusForPlayer(1).line ? "ON" : "OFF";
   const p2Line = getFormationBonusForPlayer(2).line ? "ON" : "OFF";
-  bonusStateEl.textContent = `Formation Line bonus -> P1: ${p1Line}, P2: ${p2Line}`;
+  bonusStateEl.textContent = `Line bonus P1 ${p1Line} / P2 ${p2Line}. Pandav morale (+1 damage within 2 tiles of Pandav leader). Kaurav fear (foes within 1 tile of Kaurav leader: −1 move). Rivers: only Cavalry & Chariots may stand. Mud: −1 move from that tile.`;
+  if (momentumStateEl) {
+    const sel = GAME.units.find((u) => u.id === GAME.selectedUnitId);
+    if (sel) {
+      const m = GAME.momentumByUnitId[sel.id];
+      momentumStateEl.textContent = m
+        ? `Momentum: ${m.count} (${m.kind}) — at 2+ gain +1 damage on attacks.`
+        : "Momentum: move resets streak; chain attacks or survive hits to build it.";
+    } else {
+      momentumStateEl.textContent = "Select a unit to preview its momentum.";
+    }
+  }
   cardsStateEl.innerHTML = renderCardsUI();
   attachCardButtons();
 }
@@ -437,7 +661,7 @@ function attachCardButtons() {
       if (left <= 0) return;
       GAME.pendingCard = card;
       GAME.cardStep = card === "reposition" ? "pick-unit" : "pick-target";
-      addLog(`${playerLabel(GAME.activePlayer)} preparing ${card} card.`);
+      addLog({ icon: LOG_ICON.card, text: `${playerLabel(GAME.activePlayer)} preparing ${card} card.` });
       rerender();
     });
   }
@@ -449,6 +673,7 @@ function switchTurn() {
   GAME.pendingCard = null;
   GAME.cardStep = null;
   GAME.cardUsedThisTurn = false;
+  onTurnStart();
 }
 
 function consumeCard(card) {
@@ -467,44 +692,45 @@ function handleCardClick(cx, cy, unit) {
   if (GAME.pendingCard === "strike") {
     GAME.strikeBuffByPlayer[p] = true;
     consumeCard("strike");
-    addLog(`${playerLabel(p)} activated Strike: next attack +2 damage.`);
+    addLog({ icon: LOG_ICON.card, text: `${playerLabel(p)} activated Strike: next attack +2 damage.` });
     GAME.pendingCard = null;
     return true;
   }
   if (GAME.pendingCard === "guard") {
     if (!unit || unit.player !== p) {
-      addLog("Guard card needs a friendly target.");
+      addLog({ icon: LOG_ICON.info, text: "Guard card needs a friendly target." });
       return true;
     }
     GAME.guardByUnitId[unit.id] = 2;
     consumeCard("guard");
     GAME.pendingCard = null;
-    addLog(`${playerLabel(p)} placed Guard on ${UNIT_DEFS[unit.type].name}.`);
+    addLog({ icon: LOG_ICON.card, text: `${playerLabel(p)} placed Guard on ${UNIT_DEFS[unit.type].name}.` });
     return true;
   }
   if (GAME.pendingCard === "reposition") {
     if (GAME.cardStep === "pick-unit") {
       if (!unit || unit.player !== p) {
-        addLog("Pick a friendly unit for Reposition.");
+        addLog({ icon: LOG_ICON.info, text: "Pick a friendly unit for Reposition." });
         return true;
       }
       GAME.selectedUnitId = unit.id;
       GAME.cardStep = "pick-cell";
-      addLog("Now pick an empty destination up to 2 tiles away.");
+      addLog({ icon: LOG_ICON.info, text: "Now pick an empty destination up to 2 tiles away." });
       return true;
     }
     if (GAME.cardStep === "pick-cell") {
       const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
       if (!selected) return true;
       if (!isEmpty(cx, cy) || maxDiagDistance(selected.position.x, selected.position.y, cx, cy) > 2) {
-        addLog("Invalid Reposition destination.");
+        addLog({ icon: LOG_ICON.info, text: "Invalid Reposition destination." });
         return true;
       }
+      clearMomentum(selected.id);
       selected.position = { x: cx, y: cy };
       consumeCard("reposition");
       GAME.pendingCard = null;
       GAME.cardStep = null;
-      addLog(`${playerLabel(p)} repositioned ${UNIT_DEFS[selected.type].name}.`);
+      addLog({ icon: LOG_ICON.move, text: `${playerLabel(p)} repositioned ${UNIT_DEFS[selected.type].name}.` });
       return true;
     }
   }
@@ -512,17 +738,32 @@ function handleCardClick(cx, cy, unit) {
 }
 
 function applyAttack(attacker, target) {
+  const usedHome = attacker.player === 1 && GAME.firstStrikeBonusP1 > 0;
   const damage = computeDamage(attacker, target);
+  if (usedHome) GAME.firstStrikeBonusP1 = 0;
   GAME.animations.attackerId = attacker.id;
   GAME.animations.targetId = target.id;
   GAME.animations.archerImpact = attacker.type === "A" ? { x: target.position.x, y: target.position.y } : null;
   if (GAME.guardByUnitId[target.id]) {
     GAME.guardByUnitId[target.id] -= damage;
     if (GAME.guardByUnitId[target.id] <= 0) delete GAME.guardByUnitId[target.id];
-    addLog(`${playerLabel(attacker.player)} attack absorbed by Guard.`);
+    bumpMomentum(attacker, "attack");
+    addLog({ icon: LOG_ICON.hit, text: `${playerLabel(attacker.player)} attack absorbed by Guard.` });
   } else {
     target.hp -= damage;
-    addLog(`${playerLabel(attacker.player)} ${UNIT_DEFS[attacker.type].name} hit ${UNIT_DEFS[target.type].name} for ${damage}.`);
+    bumpMomentum(attacker, "attack");
+    addLog({
+      icon: LOG_ICON.attack,
+      text: `${playerLabel(attacker.player)} ${UNIT_DEFS[attacker.type].name} hit ${UNIT_DEFS[target.type].name} for ${damage}.`,
+    });
+    if (target.hp > 0) bumpMomentum(target, "defend");
+    if (target.hp <= 0 && attacker.player === 1) {
+      showToast("Clean strike — the line senses victory.", 2200);
+      addLog({ icon: LOG_ICON.cheer, text: "The host roars approval at that blow." });
+    }
+    if (target.hp <= 0 && attacker.player === 2 && GAME.mode === "ai") {
+      addLog({ icon: LOG_ICON.info, text: "Regroup — losses happen; the war is not one swing." });
+    }
   }
   if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
   if (attacker.type === "A") animateArcherShot(attacker, target);
@@ -547,37 +788,48 @@ function takeActionAt(x, y) {
     if (unit.player === GAME.activePlayer) {
       GAME.selectedUnitId = GAME.selectedUnitId === unit.id ? null : unit.id;
       playFx("select");
-      addLog(`${playerLabel(unit.player)} ${UNIT_DEFS[unit.type].name} ${GAME.selectedUnitId ? "selected" : "deselected"}.`);
+      addLog({
+        icon: LOG_ICON.info,
+        text: `${playerLabel(unit.player)} ${UNIT_DEFS[unit.type].name} ${GAME.selectedUnitId ? "selected" : "deselected"}.`,
+      });
       rerender();
       return;
     }
     const attacker = GAME.units.find((u) => u.id === GAME.selectedUnitId);
     if (!attacker || attacker.player !== GAME.activePlayer || !canAttack(attacker, unit)) {
-      addLog("Select a valid attacker first.");
+      addLog({ icon: LOG_ICON.info, text: "Select a valid attacker first." });
       rerender();
       return;
     }
     applyAttack(attacker, unit);
     const winner = checkWin();
-    if (winner) GAME.winner = winner;
-    else switchTurn();
+    if (winner) {
+      GAME.winner = winner;
+      showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+    } else switchTurn();
     rerender();
     if (!GAME.winner) queueAiIfNeeded();
     return;
   }
   const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
   if (!selected || selected.player !== GAME.activePlayer || !canMoveTo(selected, x, y)) {
-    addLog("Invalid move.");
+    addLog({ icon: LOG_ICON.info, text: "Invalid move." });
     rerender();
     return;
   }
   const from = { ...selected.position };
+  clearMomentum(selected.id);
   selected.position = { x, y };
   playFx("move");
-  addLog(`${playerLabel(selected.player)} moved ${UNIT_DEFS[selected.type].name} from (${from.x},${from.y}) to (${x},${y}).`);
+  addLog({
+    icon: LOG_ICON.move,
+    text: `${playerLabel(selected.player)} moved ${UNIT_DEFS[selected.type].name} from (${from.x},${from.y}) to (${x},${y}).`,
+  });
   const winner = checkWin();
-  if (winner) GAME.winner = winner;
-  else switchTurn();
+  if (winner) {
+    GAME.winner = winner;
+    showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+  } else switchTurn();
   rerender();
   if (!GAME.winner) queueAiIfNeeded();
 }
@@ -608,30 +860,47 @@ function createBoard() {
 
 function initTerrain() {
   GAME.terrain = {};
+  GAME.mudTiles = {};
   const mapByScenario = {
     opening: [
       [2, 3, "forest"],
       [5, 4, "forest"],
       [3, 3, "hill"],
       [4, 4, "hill"],
+      [1, 4, "river"],
+      [6, 3, "river"],
+      [2, 4, "mud"],
+      [5, 3, "mud"],
     ],
     frontline: [
       [2, 3, "hill"],
       [3, 3, "hill"],
       [4, 4, "forest"],
       [5, 4, "forest"],
+      [3, 4, "river"],
+      [4, 3, "river"],
+      [1, 4, "mud"],
+      [6, 3, "mud"],
     ],
     flanks: [
       [0, 3, "forest"],
       [7, 4, "forest"],
       [1, 2, "hill"],
       [6, 5, "hill"],
+      [3, 4, "river"],
+      [4, 3, "river"],
+      [2, 5, "mud"],
+      [5, 2, "mud"],
     ],
     "leader-hunt": [
       [3, 2, "forest"],
       [4, 5, "forest"],
       [3, 4, "hill"],
       [4, 3, "hill"],
+      [2, 3, "river"],
+      [5, 4, "river"],
+      [2, 2, "mud"],
+      [5, 5, "mud"],
     ],
     "forest-ambush": [
       [1, 2, "forest"],
@@ -640,6 +909,10 @@ function initTerrain() {
       [6, 5, "forest"],
       [3, 3, "hill"],
       [4, 4, "hill"],
+      [4, 2, "river"],
+      [3, 5, "river"],
+      [2, 4, "mud"],
+      [5, 3, "mud"],
     ],
     "royal-siege": [
       [3, 2, "hill"],
@@ -648,10 +921,15 @@ function initTerrain() {
       [4, 5, "forest"],
       [2, 4, "hill"],
       [5, 3, "hill"],
+      [3, 3, "river"],
+      [4, 4, "river"],
+      [1, 3, "mud"],
+      [6, 4, "mud"],
     ],
   };
   for (const [x, y, type] of mapByScenario[GAME.scenario]) {
-    GAME.terrain[posKey(x, y)] = type;
+    if (type === "mud") GAME.mudTiles[posKey(x, y)] = true;
+    else GAME.terrain[posKey(x, y)] = type;
   }
 }
 
@@ -675,18 +953,21 @@ function initUnits() {
       ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 3, 2], ["p1-A1", "A", 1, 2, 1], ["p1-C1", "C", 1, 0, 3], ["p1-C2", "C", 1, 7, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 6, 0],
       ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 5, 6], ["p2-C1", "C", 2, 0, 5], ["p2-C2", "C", 2, 7, 4], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 1, 7]
     );
+  } else if (GAME.scenario === "forest-ambush") {
+    base.push(
+      ["p1-L", "L", 1, 2, 0], ["p1-I1", "I", 1, 1, 2], ["p1-I2", "I", 1, 3, 2], ["p1-A1", "A", 1, 0, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 5, 7], ["p2-I1", "I", 2, 4, 5], ["p2-I2", "I", 2, 6, 5], ["p2-A1", "A", 2, 7, 6], ["p2-A2", "A", 2, 3, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 6]
+    );
+  } else if (GAME.scenario === "leader-hunt") {
+    base.push(
+      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+    );
   } else {
-    if (GAME.scenario === "forest-ambush") {
-      base.push(
-        ["p1-L", "L", 1, 2, 0], ["p1-I1", "I", 1, 1, 2], ["p1-I2", "I", 1, 3, 2], ["p1-A1", "A", 1, 0, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
-        ["p2-L", "L", 2, 5, 7], ["p2-I1", "I", 2, 4, 5], ["p2-I2", "I", 2, 6, 5], ["p2-A1", "A", 2, 7, 6], ["p2-A2", "A", 2, 3, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 6]
-      );
-    } else {
-      base.push(
-        ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
-        ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
-      );
-    }
+    base.push(
+      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+    );
   }
   for (const [id, type, player, x, y] of base) {
     GAME.units.push({ id, type, player, hp: UNIT_DEFS[type].hp, position: { x, y } });
@@ -708,9 +989,21 @@ function resetMatch() {
   };
   GAME.lastAction = "-";
   GAME.actionLog = [];
+  GAME.momentumByUnitId = {};
+  GAME.firstStrikeBonusP1 = consumeHomeBonus() ? 1 : 0;
   initTerrain();
   initUnits();
-  addLog(`Scenario "${GAME.scenario}" started. ${playerLabel(GAME.activePlayer)} to act.`);
+  addLog({
+    icon: LOG_ICON.terrain,
+    text: `Scenario "${GAME.scenario}" started. ${playerLabel(GAME.activePlayer)} to act.`,
+  });
+  if (GAME.firstStrikeBonusP1) {
+    addLog({
+      icon: LOG_ICON.morale,
+      text: "Camp blessing: your first Pandav strike this battle deals +1 damage.",
+    });
+  }
+  onTurnStart();
   rerender();
   queueAiIfNeeded();
 }
@@ -738,8 +1031,10 @@ function aiTurn() {
       GAME.selectedUnitId = u.id;
       applyAttack(u, targets[0]);
       const winner = checkWin();
-      if (winner) GAME.winner = winner;
-      else switchTurn();
+      if (winner) {
+        GAME.winner = winner;
+        showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+      } else switchTurn();
       rerender();
       return;
     }
@@ -754,15 +1049,18 @@ function aiTurn() {
         maxDiagDistance(a.x, a.y, nearEnemy.position.x, nearEnemy.position.y) -
         maxDiagDistance(b.x, b.y, nearEnemy.position.x, nearEnemy.position.y)
     );
+    clearMomentum(u.id);
     u.position = { x: moves[0].x, y: moves[0].y };
-    addLog(`AI moved ${UNIT_DEFS[u.type].name}.`);
+    addLog({ icon: LOG_ICON.move, text: `AI moved ${UNIT_DEFS[u.type].name}.` });
     const winner = checkWin();
-    if (winner) GAME.winner = winner;
-    else switchTurn();
+    if (winner) {
+      GAME.winner = winner;
+      showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+    } else switchTurn();
     rerender();
     return;
   }
-  addLog("AI skipped turn.");
+  addLog({ icon: LOG_ICON.info, text: "AI skipped turn." });
   switchTurn();
   rerender();
 }
@@ -793,6 +1091,18 @@ function updateScenarioPreview(scenario) {
   const meta = SCENARIO_PREVIEW_META[scenario] || SCENARIO_PREVIEW_META.opening;
   battlePreviewTitleEl.textContent = meta.title;
   battlePreviewDescEl.textContent = meta.desc;
+}
+
+function setupHomeInteractives() {
+  const preview = document.getElementById("battleMapPreview");
+  if (!preview) return;
+  preview.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-home-bonus]");
+    if (!btn) return;
+    sessionStorage.setItem("ranbhoomiHomeBonus", JSON.stringify({ strike: true }));
+    showToast("The field remembers your attention — first Pandav strike next battle +1 damage.");
+    playFx("select");
+  });
 }
 
 function setupScenarioCards() {
@@ -846,7 +1156,11 @@ function initUI() {
   battleMapPreviewEl = document.getElementById("battleMapPreview");
   battlePreviewTitleEl = document.getElementById("battlePreviewTitle");
   battlePreviewDescEl = document.getElementById("battlePreviewDesc");
+  momentumStateEl = document.getElementById("momentumState");
+  eventBannerEl = document.getElementById("eventBanner");
+  toastEl = document.getElementById("appToast");
 
+  setupHomeInteractives();
   resetBtn.addEventListener("click", resetMatch);
   modeSelectEl.addEventListener("change", () => {
     GAME.mode = modeSelectEl.value;
