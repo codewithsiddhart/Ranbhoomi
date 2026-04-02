@@ -10,15 +10,23 @@
     <div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
     <main class="app">
       <section id="homeScreen" class="screen home-screen">
+        <div class="home-bg-stack" aria-hidden="true">
+          <div class="home-bg-sky"></div>
+          <div class="home-bg-canopy"></div>
+          <div class="home-bg-rays"></div>
+          <div class="home-bg-mist"></div>
+        </div>
         <div class="home-particles" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span>
+          <span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span
+          ><span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span
+          ><span class="ember"></span><span class="ember"></span><span class="ember"></span>
         </div>
         <div class="hero-overlay"></div>
         <header class="home-topbar">
           <p class="title-kicker">The Great War Awaits</p>
           <h1 class="title">Ranbhoomi</h1>
           <p class="subtitle">Kurukshetra Command Grounds</p>
-          <button id="goToBattleBtn" class="btn btn-primary" type="button">Enter Gameplay</button>
+          <button id="goToBattleBtn" class="btn btn-primary btn-leaf" type="button">Enter Gameplay</button>
         </header>
 
         <section class="battle-preview" aria-label="Battlefield preview">
@@ -83,30 +91,43 @@
       </section>
 
       <section id="gameScreen" class="screen game-screen hidden">
+        <div class="game-bg-stack" aria-hidden="true">
+          <div class="game-bg-dusk"></div>
+          <div class="game-bg-gold"></div>
+          <div class="game-bg-dust"></div>
+          <div class="game-bg-vignette"></div>
+        </div>
         <header class="game-topbar">
           <div class="status">
             <div id="turnBanner" class="turn-banner p1">
-              Turn: <strong id="currentPlayerLabel">P1</strong>
+              Turn — <strong id="currentPlayerLabel">Pandav (P1)</strong>
             </div>
             <p id="eventBanner" class="event-banner">Field clear — command your line.</p>
             <div id="winnerLabel" class="winner hidden"></div>
           </div>
           <div class="top-controls">
-            <button id="backHomeBtn" class="btn btn-secondary" type="button">Home</button>
-            <button id="rulesBtn" class="btn" type="button">Rules</button>
-            <button id="resetBtn" class="btn btn-secondary" type="button">Reset Match</button>
+            <button id="backHomeBtn" class="btn btn-secondary btn-leaf" type="button">Home</button>
+            <button id="rulesBtn" class="btn btn-leaf" type="button">Rules</button>
+            <button id="resetBtn" class="btn btn-secondary btn-leaf" type="button">Reset Match</button>
           </div>
           <div class="top-controls">
             <label class="control-group" for="modeSelect">
               Mode
-              <select id="modeSelect" class="input">
-                <option value="local">Local P1 vs P2</option>
-                <option value="ai">P1 vs AI</option>
+              <select id="modeSelect" class="input input-round">
+                <option value="local">Local — two players</option>
+                <option value="ai">You vs AI</option>
+              </select>
+            </label>
+            <label id="aiSideWrap" class="control-group ai-side-wrap" for="sideSelect">
+              Your army
+              <select id="sideSelect" class="input input-round">
+                <option value="pandav">Lead Pandav host (P1)</option>
+                <option value="kaurav">Lead Kaurav host (P1)</option>
               </select>
             </label>
             <label class="control-group" for="themeSelect">
               Theme
-              <select id="themeSelect" class="input">
+              <select id="themeSelect" class="input input-round">
                 <option value="kurukshetra">Kurukshetra Dawn</option>
                 <option value="royal">Royal Arena</option>
                 <option value="forest">Green Forest</option>
@@ -173,7 +194,7 @@
     <dialog id="rulesDialog" class="rules-dialog">
       <div class="rules-header">
         <h2>Ranbhoomi Rules & Scenarios</h2>
-        <button id="closeRulesBtn" class="btn btn-secondary" type="button">Close</button>
+        <button id="closeRulesBtn" class="btn btn-secondary btn-leaf" type="button">Close</button>
       </div>
       <div class="rules-content">
         <section>
@@ -183,9 +204,10 @@
         <section>
           <h3>Turn Flow</h3>
           <ul>
-            <li>Player 1 acts, then Player 2 acts.</li>
-            <li>On your turn, select one of your units and move or attack.</li>
-            <li>You can also use one card on your turn.</li>
+            <li>Pandav and Kaurav hosts alternate turns (P1 then P2).</li>
+            <li>Against AI you always pick your army: Pandav or Kaurav (you stay on P1).</li>
+            <li>In local play, who is Pandav vs Kaurav is randomized each match.</li>
+            <li>On your turn, select one of your units and move or attack, or play one card.</li>
           </ul>
         </section>
         <section>

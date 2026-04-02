@@ -25,7 +25,9 @@ const GAME = {
   momentumByUnitId: {},
   turnEventMessage: null,
   turnCombatBonus: { archer: 0, melee: 0 },
-  firstStrikeBonusP1: 0,
+  firstStrikeBonusPandav: 0,
+  /** Which player (1 or 2) commands the Pandav host; the other is Kaurav. */
+  pandavPlayer: 1,
 };
 
 const UNIT_DEFS = {
@@ -110,6 +112,8 @@ let battlePreviewDescEl;
 let momentumStateEl;
 let eventBannerEl;
 let toastEl;
+let sideSelectEl;
+let aiSideWrapEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -119,16 +123,24 @@ function getLeader(player) {
   return GAME.units.find((u) => u.player === player && u.type === "L") || null;
 }
 
+function kauravPlayerNum() {
+  return GAME.pandavPlayer === 1 ? 2 : 1;
+}
+
+function factionName(player) {
+  return player === GAME.pandavPlayer ? "Pandav" : "Kaurav";
+}
+
 function getMoraleDamageBonus(attacker) {
-  if (attacker.player !== 1) return 0;
-  const leader = getLeader(1);
+  if (attacker.player !== GAME.pandavPlayer) return 0;
+  const leader = getLeader(GAME.pandavPlayer);
   if (!leader) return 0;
   return maxDiagDistance(attacker.position.x, attacker.position.y, leader.position.x, leader.position.y) <= 2 ? 1 : 0;
 }
 
 function getIntimidationMovePenalty(unit) {
-  if (unit.player !== 1) return 0;
-  const kaurav = getLeader(2);
+  if (unit.player !== GAME.pandavPlayer) return 0;
+  const kaurav = getLeader(kauravPlayerNum());
   if (!kaurav) return 0;
   return maxDiagDistance(unit.position.x, unit.position.y, kaurav.position.x, kaurav.position.y) <= 1 ? 1 : 0;
 }
@@ -247,7 +259,7 @@ function maxDiagDistance(x1, y1, x2, y2) {
 }
 
 function playerLabel(player) {
-  return player === 1 ? "P1" : "P2";
+  return `${factionName(player)} (P${player})`;
 }
 
 function addLog(lineOrEntry) {
@@ -452,7 +464,7 @@ function computeDamage(attacker, target) {
     getTerrainAt(target.position.x, target.position.y) === "forest" && attacker.type === "A" ? 1 : 0;
   const moraleBonus = getMoraleDamageBonus(attacker);
   const momentumBonus = getMomentumBonus(attacker);
-  const homeBonus = attacker.player === 1 && GAME.firstStrikeBonusP1 > 0 ? 1 : 0;
+  const homeBonus = attacker.player === GAME.pandavPlayer && GAME.firstStrikeBonusPandav > 0 ? 1 : 0;
   const isMelee = UNIT_DEFS[attacker.type].melee;
   const eventMelee = isMelee ? GAME.turnCombatBonus.melee : 0;
   const eventArcher = attacker.type === "A" ? GAME.turnCombatBonus.archer : 0;
@@ -505,7 +517,7 @@ function clearHighlights() {
 
 function highlightState() {
   clearHighlights();
-  const pandav = getLeader(1);
+  const pandav = getLeader(GAME.pandavPlayer);
   if (pandav && (!GAME.fogEnabled || isVisibleToPlayer(pandav.position.x, pandav.position.y, GAME.activePlayer))) {
     for (let y = 0; y < GAME.size; y++) {
       for (let x = 0; x < GAME.size; x++) {
@@ -516,7 +528,7 @@ function highlightState() {
       }
     }
   }
-  const kaurav = getLeader(2);
+  const kaurav = getLeader(kauravPlayerNum());
   if (kaurav && (!GAME.fogEnabled || isVisibleToPlayer(kaurav.position.x, kaurav.position.y, GAME.activePlayer))) {
     for (let y = 0; y < GAME.size; y++) {
       for (let x = 0; x < GAME.size; x++) {
@@ -560,14 +572,21 @@ function renderBoardCells() {
     if (hidden) continue;
     const cell = cellMap[u.position.y][u.position.x];
     const unitEl = document.createElement("div");
-    unitEl.className = `unit ${u.player === 1 ? "p1" : "p2"}`;
+    const fac = u.player === GAME.pandavPlayer ? "pandav" : "kaurav";
+    unitEl.className = `unit unit-idle ${fac}`;
     unitEl.classList.add(`hp-${hpTier(u)}`);
     const mom = GAME.momentumByUnitId[u.id];
     if (mom && mom.count >= 2) unitEl.classList.add("unit-momentum");
     if (getMoraleDamageBonus(u) > 0) unitEl.classList.add("unit-morale");
     if (countThreatsAgainst(u) > 0) unitEl.classList.add("unit-threat");
-    if (GAME.animations.attackerId === u.id) unitEl.classList.add("anim-attack");
-    if (GAME.animations.targetId === u.id) unitEl.classList.add("anim-hit");
+    if (GAME.animations.attackerId === u.id) {
+      unitEl.classList.remove("unit-idle");
+      unitEl.classList.add("anim-attack");
+    }
+    if (GAME.animations.targetId === u.id) {
+      unitEl.classList.remove("unit-idle");
+      unitEl.classList.add("anim-hit");
+    }
     const letter = document.createElement("div");
     letter.className = "letter";
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
@@ -599,20 +618,25 @@ function renderBoardCells() {
 
 function renderStatus() {
   currentPlayerLabel.textContent = playerLabel(GAME.activePlayer);
-  turnBannerEl.classList.remove("p1", "p2");
+  turnBannerEl.classList.remove("p1", "p2", "turn-pandav", "turn-kaurav");
   turnBannerEl.classList.add(GAME.activePlayer === 1 ? "p1" : "p2");
+  turnBannerEl.classList.add(GAME.activePlayer === GAME.pandavPlayer ? "turn-pandav" : "turn-kaurav");
   if (GAME.winner) {
     turnBannerEl.classList.add("hidden");
     winnerLabel.classList.remove("hidden");
-    winnerLabel.textContent = `${playerLabel(GAME.winner)} wins the war.`;
+    winnerLabel.textContent = `${factionName(GAME.winner)} host (${GAME.winner === 1 ? "P1" : "P2"}) wins the war.`;
   } else {
     turnBannerEl.classList.remove("hidden");
     winnerLabel.classList.add("hidden");
   }
-  phaseStateEl.textContent = `Scenario: ${GAME.selectedScenarioLabel} | Mode: ${GAME.mode === "ai" ? "P1 vs AI" : "Local P1 vs P2"} | Terrain, leaders, momentum, optional fog`;
+  const modeStr =
+    GAME.mode === "ai"
+      ? `You vs AI — you: ${factionName(1)} (P1) · AI: ${factionName(2)} (P2)`
+      : `Local — ${factionName(1)} = P1, ${factionName(2)} = P2 (random each match)`;
+  phaseStateEl.textContent = `Scenario: ${GAME.selectedScenarioLabel} | ${modeStr} | fog optional`;
   const p1Line = getFormationBonusForPlayer(1).line ? "ON" : "OFF";
   const p2Line = getFormationBonusForPlayer(2).line ? "ON" : "OFF";
-  bonusStateEl.textContent = `Line bonus P1 ${p1Line} / P2 ${p2Line}. Pandav morale (+1 damage within 2 tiles of Pandav leader). Kaurav fear (foes within 1 tile of Kaurav leader: −1 move). Rivers: only Cavalry & Chariots may stand. Mud: −1 move from that tile.`;
+  bonusStateEl.textContent = `Line P1 ${p1Line} / P2 ${p2Line}. Pandav morale near Pandav leader; Kaurav fear near Kaurav leader. Rivers & mud as marked.`;
   if (momentumStateEl) {
     const sel = GAME.units.find((u) => u.id === GAME.selectedUnitId);
     if (sel) {
@@ -634,15 +658,15 @@ function renderCardsUI() {
   return `
     <div style="margin-bottom:6px;">${playerLabel(p)} cards (use one per turn):</div>
     <div class="cards-wrap">
-      <button class="btn card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+      <button class="btn btn-leaf card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
         <span class="card-title"><span>Strike</span><span>${c.strike}</span></span>
         <span class="card-desc">Empower next attack with +2 damage.</span>
       </button>
-      <button class="btn card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+      <button class="btn btn-leaf card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
         <span class="card-title"><span>Guard</span><span>${c.guard}</span></span>
         <span class="card-desc">Shield one ally and absorb damage.</span>
       </button>
-      <button class="btn card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+      <button class="btn btn-leaf card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
         <span class="card-title"><span>Reposition</span><span>${c.reposition}</span></span>
         <span class="card-desc">Move one ally quickly up to 2 cells.</span>
       </button>
@@ -738,9 +762,9 @@ function handleCardClick(cx, cy, unit) {
 }
 
 function applyAttack(attacker, target) {
-  const usedHome = attacker.player === 1 && GAME.firstStrikeBonusP1 > 0;
+  const usedHome = attacker.player === GAME.pandavPlayer && GAME.firstStrikeBonusPandav > 0;
   const damage = computeDamage(attacker, target);
-  if (usedHome) GAME.firstStrikeBonusP1 = 0;
+  if (usedHome) GAME.firstStrikeBonusPandav = 0;
   GAME.animations.attackerId = attacker.id;
   GAME.animations.targetId = target.id;
   GAME.animations.archerImpact = attacker.type === "A" ? { x: target.position.x, y: target.position.y } : null;
@@ -757,11 +781,11 @@ function applyAttack(attacker, target) {
       text: `${playerLabel(attacker.player)} ${UNIT_DEFS[attacker.type].name} hit ${UNIT_DEFS[target.type].name} for ${damage}.`,
     });
     if (target.hp > 0) bumpMomentum(target, "defend");
-    if (target.hp <= 0 && attacker.player === 1) {
+    if (target.hp <= 0 && attacker.player === GAME.pandavPlayer) {
       showToast("Clean strike — the line senses victory.", 2200);
       addLog({ icon: LOG_ICON.cheer, text: "The host roars approval at that blow." });
     }
-    if (target.hp <= 0 && attacker.player === 2 && GAME.mode === "ai") {
+    if (target.hp <= 0 && attacker.player === kauravPlayerNum() && GAME.mode === "ai") {
       addLog({ icon: LOG_ICON.info, text: "Regroup — losses happen; the war is not one swing." });
     }
   }
@@ -769,6 +793,10 @@ function applyAttack(attacker, target) {
   if (attacker.type === "A") animateArcherShot(attacker, target);
   cellMap[target.position.y][target.position.x].classList.add("attack-hit");
   playFx(attacker.type === "A" ? "archer" : "hit");
+  if (gameScreenEl) {
+    gameScreenEl.classList.add("impact-shake");
+    window.setTimeout(() => gameScreenEl.classList.remove("impact-shake"), 420);
+  }
   if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
   window.setTimeout(() => {
     GAME.animations = { attackerId: null, targetId: null, archerImpact: null };
@@ -805,7 +833,7 @@ function takeActionAt(x, y) {
     const winner = checkWin();
     if (winner) {
       GAME.winner = winner;
-      showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+      showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
     } else switchTurn();
     rerender();
     if (!GAME.winner) queueAiIfNeeded();
@@ -828,7 +856,7 @@ function takeActionAt(x, y) {
   const winner = checkWin();
   if (winner) {
     GAME.winner = winner;
-    showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+    showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
   } else switchTurn();
   rerender();
   if (!GAME.winner) queueAiIfNeeded();
@@ -849,7 +877,10 @@ function createBoard() {
     const row = [];
     for (let x = 0; x < GAME.size; x++) {
       const cell = document.createElement("div");
-      cell.className = "cell";
+      cell.className = "cell cell-alive";
+      cell.style.setProperty("--cx", String(x));
+      cell.style.setProperty("--cy", String(y));
+      cell.style.animationDelay = `${(x + y) * 0.035}s`;
       cell.addEventListener("click", () => takeActionAt(x, y));
       boardEl.appendChild(cell);
       row.push(cell);
@@ -990,14 +1021,20 @@ function resetMatch() {
   GAME.lastAction = "-";
   GAME.actionLog = [];
   GAME.momentumByUnitId = {};
-  GAME.firstStrikeBonusP1 = consumeHomeBonus() ? 1 : 0;
+  if (GAME.mode === "local") {
+    GAME.pandavPlayer = Math.random() < 0.5 ? 1 : 2;
+  } else {
+    const side = sideSelectEl && sideSelectEl.value ? sideSelectEl.value : "pandav";
+    GAME.pandavPlayer = side === "pandav" ? 1 : 2;
+  }
+  GAME.firstStrikeBonusPandav = consumeHomeBonus() ? 1 : 0;
   initTerrain();
   initUnits();
   addLog({
     icon: LOG_ICON.terrain,
     text: `Scenario "${GAME.scenario}" started. ${playerLabel(GAME.activePlayer)} to act.`,
   });
-  if (GAME.firstStrikeBonusP1) {
+  if (GAME.firstStrikeBonusPandav) {
     addLog({
       icon: LOG_ICON.morale,
       text: "Camp blessing: your first Pandav strike this battle deals +1 damage.",
@@ -1033,7 +1070,7 @@ function aiTurn() {
       const winner = checkWin();
       if (winner) {
         GAME.winner = winner;
-        showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+        showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
       } else switchTurn();
       rerender();
       return;
@@ -1055,7 +1092,7 @@ function aiTurn() {
     const winner = checkWin();
     if (winner) {
       GAME.winner = winner;
-      showToast(`${playerLabel(winner)} claims the field. Victory!`, 3600);
+      showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
     } else switchTurn();
     rerender();
     return;
@@ -1159,13 +1196,25 @@ function initUI() {
   momentumStateEl = document.getElementById("momentumState");
   eventBannerEl = document.getElementById("eventBanner");
   toastEl = document.getElementById("appToast");
+  sideSelectEl = document.getElementById("sideSelect");
+  aiSideWrapEl = document.getElementById("aiSideWrap");
+
+  function syncAiSideVisibility() {
+    if (aiSideWrapEl) aiSideWrapEl.classList.toggle("hidden", modeSelectEl.value !== "ai");
+  }
 
   setupHomeInteractives();
   resetBtn.addEventListener("click", resetMatch);
   modeSelectEl.addEventListener("change", () => {
     GAME.mode = modeSelectEl.value;
+    syncAiSideVisibility();
     resetMatch();
   });
+  if (sideSelectEl) {
+    sideSelectEl.addEventListener("change", () => {
+      if (GAME.mode === "ai") resetMatch();
+    });
+  }
   fogToggleEl.addEventListener("change", () => {
     GAME.fogEnabled = fogToggleEl.checked;
     rerender();
@@ -1177,6 +1226,7 @@ function initUI() {
   });
   setupScenarioCards();
   updateScenarioPreview(GAME.scenario);
+  syncAiSideVisibility();
 }
 
 function main() {
