@@ -34,6 +34,32 @@ const UNIT_DEFS = {
 
 const UNIT_ICON_BY_TYPE = { L: "👑", I: "🛡️", A: "🏹", C: "🐎", E: "🐘", R: "🛞" };
 const UNIT_IMAGE_BY_TYPE = { R: "assets/chariot.svg" };
+const SCENARIO_PREVIEW_META = {
+  opening: {
+    title: "Battlefield Recon: Opening Formation",
+    desc: "Balanced frontline lanes with stable terrain and broad maneuver options.",
+  },
+  frontline: {
+    title: "Battlefield Recon: Frontline Clash",
+    desc: "Heavy center pressure and direct infantry collision from turn one.",
+  },
+  flanks: {
+    title: "Battlefield Recon: Flank Pressure",
+    desc: "Wide side lanes favor cavalry loops, pincer strikes, and backline raids.",
+  },
+  "leader-hunt": {
+    title: "Battlefield Recon: Leader Hunt",
+    desc: "Tight central choke points reward precision attacks on command units.",
+  },
+  "forest-ambush": {
+    title: "Battlefield Recon: Forest Ambush",
+    desc: "Green cover and concealed approach lanes punish careless advances.",
+  },
+  "royal-siege": {
+    title: "Battlefield Recon: Royal Siege",
+    desc: "Fortified centerline and siege lane create a brutal high-stakes push.",
+  },
+};
 
 let cellMap = [];
 let boardEl;
@@ -59,6 +85,9 @@ let scenarioCardsEl;
 let ambientAudioCtx;
 let projectileLayerEl;
 let themeSelectEl;
+let battleMapPreviewEl;
+let battlePreviewTitleEl;
+let battlePreviewDescEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -749,6 +778,23 @@ function attachRulesDialog() {
   closeRulesBtn.addEventListener("click", () => rulesDialogEl.close());
 }
 
+function updateScenarioPreview(scenario) {
+  if (!battleMapPreviewEl || !battlePreviewTitleEl || !battlePreviewDescEl) return;
+  const previewClassList = [
+    "preview-opening",
+    "preview-frontline",
+    "preview-flanks",
+    "preview-leader-hunt",
+    "preview-forest-ambush",
+    "preview-royal-siege",
+  ];
+  battleMapPreviewEl.classList.remove(...previewClassList);
+  battleMapPreviewEl.classList.add(`preview-${scenario}`);
+  const meta = SCENARIO_PREVIEW_META[scenario] || SCENARIO_PREVIEW_META.opening;
+  battlePreviewTitleEl.textContent = meta.title;
+  battlePreviewDescEl.textContent = meta.desc;
+}
+
 function setupScenarioCards() {
   const cards = scenarioCardsEl.querySelectorAll(".scenario-card");
   for (const card of cards) {
@@ -757,6 +803,7 @@ function setupScenarioCards() {
       card.classList.add("selected");
       GAME.scenario = card.dataset.scenario;
       GAME.selectedScenarioLabel = card.querySelector(".scenario-name").textContent.trim();
+      updateScenarioPreview(GAME.scenario);
       playFx("select");
     });
   }
@@ -796,6 +843,9 @@ function initUI() {
   scenarioCardsEl = document.getElementById("scenarioCards");
   projectileLayerEl = document.getElementById("projectileLayer");
   themeSelectEl = document.getElementById("themeSelect");
+  battleMapPreviewEl = document.getElementById("battleMapPreview");
+  battlePreviewTitleEl = document.getElementById("battlePreviewTitle");
+  battlePreviewDescEl = document.getElementById("battlePreviewDesc");
 
   resetBtn.addEventListener("click", resetMatch);
   modeSelectEl.addEventListener("change", () => {
@@ -812,6 +862,7 @@ function initUI() {
     applyTheme(themeSelectEl.value);
   });
   setupScenarioCards();
+  updateScenarioPreview(GAME.scenario);
 }
 
 function main() {
