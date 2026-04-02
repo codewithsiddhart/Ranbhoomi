@@ -9,6 +9,15 @@
   --selected: rgba(255, 255, 0, 0.35);
   --glass: rgba(7, 26, 18, 0.58);
   --text: #eaf6ea;
+  --accent: #f6d18a;
+  --home-bg:
+    linear-gradient(180deg, rgba(8, 20, 13, 0.46), rgba(8, 24, 15, 0.82)),
+    url("https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1920&q=80")
+      center/cover no-repeat;
+  --game-bg:
+    linear-gradient(180deg, rgba(38, 78, 52, 0.28), rgba(14, 26, 20, 0.72)),
+    radial-gradient(circle at 65% 30%, rgba(116, 168, 121, 0.22), transparent 36%),
+    #0f1914;
 }
 
 * {
@@ -42,10 +51,35 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background:
-    linear-gradient(180deg, rgba(8, 20, 13, 0.46), rgba(8, 24, 15, 0.82)),
-    url("https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1920&q=80")
-      center/cover no-repeat;
+  background: var(--home-bg);
+}
+
+.home-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.home-particles span {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(243, 228, 173, 0.18);
+  box-shadow: 0 0 18px rgba(255, 214, 148, 0.22);
+  animation: rise 8s linear infinite;
+}
+
+.home-particles span:nth-child(1) { left: 10%; bottom: -30px; animation-delay: 0s; }
+.home-particles span:nth-child(2) { left: 30%; bottom: -40px; animation-delay: 1.2s; }
+.home-particles span:nth-child(3) { left: 55%; bottom: -36px; animation-delay: 2.4s; }
+.home-particles span:nth-child(4) { left: 72%; bottom: -45px; animation-delay: 3.1s; }
+.home-particles span:nth-child(5) { left: 88%; bottom: -33px; animation-delay: 4.2s; }
+
+@keyframes rise {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-92vh) scale(1.2); opacity: 0; }
 }
 
 .hero-overlay {
@@ -89,6 +123,10 @@ body {
   margin-top: 16px;
   background: linear-gradient(135deg, #4f9b5f, #3a7a49);
   border-color: rgba(216, 238, 198, 0.35);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 8px 22px rgba(131, 197, 109, 0.34);
 }
 
 .scenario-panel {
@@ -145,10 +183,7 @@ body {
 
 .game-screen {
   padding: 14px;
-  background:
-    linear-gradient(180deg, rgba(38, 78, 52, 0.28), rgba(14, 26, 20, 0.72)),
-    radial-gradient(circle at 65% 30%, rgba(116, 168, 121, 0.22), transparent 36%),
-    #0f1914;
+  background: var(--game-bg);
 }
 
 .game-topbar {
@@ -295,6 +330,48 @@ body {
     rgba(30, 56, 36, 0.65);
   border: 2px solid rgba(143, 168, 122, 0.54);
   border-radius: 10px;
+}
+
+.board-stage {
+  position: relative;
+  display: inline-grid;
+}
+
+.projectile-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.arrow-projectile {
+  position: absolute;
+  width: 34px;
+  height: 10px;
+  transform-origin: center center;
+}
+
+.arrow-projectile::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e5ca8e, #a37037);
+}
+
+.arrow-projectile::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 10px solid #f6d18a;
 }
 
 .cell {
@@ -448,6 +525,13 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.26);
 }
 
+.unit .letter img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
 .unit .name {
   font-size: 10px;
   font-weight: 700;
@@ -498,6 +582,91 @@ body {
   font-size: 13px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.8);
+}
+
+.cards-wrap {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.card-btn {
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(95, 63, 28, 0.52), rgba(58, 36, 18, 0.8));
+  border: 1px solid rgba(243, 210, 142, 0.45);
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.card-btn .card-title {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  color: #ffe6b6;
+}
+
+.card-btn .card-desc {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.92;
+}
+
+.game-screen.effect-strike .board {
+  box-shadow: 0 0 0 3px rgba(255, 198, 112, 0.26), 0 0 24px rgba(255, 198, 112, 0.25);
+}
+
+.game-screen.effect-guard .board {
+  box-shadow: 0 0 0 3px rgba(124, 199, 255, 0.26), 0 0 24px rgba(124, 199, 255, 0.25);
+}
+
+.game-screen.effect-reposition .board {
+  box-shadow: 0 0 0 3px rgba(189, 140, 255, 0.26), 0 0 24px rgba(189, 140, 255, 0.25);
+}
+
+.game-screen.effect-strike .battlefield-panel,
+.game-screen.effect-guard .battlefield-panel,
+.game-screen.effect-reposition .battlefield-panel {
+  animation: card-activate 420ms ease;
+}
+
+@keyframes card-activate {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.012); }
+  100% { transform: scale(1); }
+}
+
+body.theme-royal {
+  --home-bg:
+    linear-gradient(180deg, rgba(28, 17, 12, 0.48), rgba(21, 12, 7, 0.84)),
+    url("https://images.unsplash.com/photo-1511732351661-4f3d95fca0f7?auto=format&fit=crop&w=1920&q=80")
+      center/cover no-repeat;
+  --game-bg:
+    linear-gradient(180deg, rgba(88, 47, 21, 0.24), rgba(26, 14, 9, 0.82)),
+    radial-gradient(circle at 60% 24%, rgba(203, 145, 78, 0.25), transparent 38%),
+    #22120c;
+  --glass: rgba(40, 24, 14, 0.62);
+}
+
+body.theme-forest {
+  --home-bg:
+    linear-gradient(180deg, rgba(8, 30, 20, 0.48), rgba(8, 20, 12, 0.84)),
+    url("https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80")
+      center/cover no-repeat;
+  --game-bg:
+    linear-gradient(180deg, rgba(25, 84, 52, 0.24), rgba(9, 25, 15, 0.84)),
+    radial-gradient(circle at 16% 38%, rgba(86, 165, 116, 0.24), transparent 32%),
+    #10221a;
+}
+
+body.theme-sunset {
+  --home-bg:
+    linear-gradient(180deg, rgba(45, 21, 10, 0.5), rgba(24, 10, 7, 0.84)),
+    url("https://images.unsplash.com/photo-1473773508845-188df298d2d1?auto=format&fit=crop&w=1920&q=80")
+      center/cover no-repeat;
+  --game-bg:
+    linear-gradient(180deg, rgba(98, 56, 23, 0.25), rgba(25, 11, 8, 0.84)),
+    radial-gradient(circle at 72% 24%, rgba(243, 131, 90, 0.28), transparent 35%),
+    #27140e;
 }
 
 .last-action {

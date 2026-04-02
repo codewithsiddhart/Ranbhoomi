@@ -32,8 +32,8 @@ const UNIT_DEFS = {
   R: { name: "Chariot", move: 2, hp: 7, damage: 3, melee: true, archerRange: null },
 };
 
-const UNIT_LETTER_BY_TYPE = { L: "L", I: "I", A: "A", C: "C", E: "E", R: "R" };
 const UNIT_ICON_BY_TYPE = { L: "👑", I: "🛡️", A: "🏹", C: "🐎", E: "🐘", R: "🛞" };
+const UNIT_IMAGE_BY_TYPE = { R: "assets/chariot.svg" };
 
 let cellMap = [];
 let boardEl;
@@ -57,6 +57,8 @@ let goToBattleBtn;
 let backHomeBtn;
 let scenarioCardsEl;
 let ambientAudioCtx;
+let projectileLayerEl;
+let themeSelectEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -93,6 +95,11 @@ function addLog(line) {
     li.textContent = item;
     actionLogEl.appendChild(li);
   }
+}
+
+function applyTheme(themeName) {
+  document.body.classList.remove("theme-kurukshetra", "theme-royal", "theme-forest", "theme-sunset");
+  if (themeName && themeName !== "kurukshetra") document.body.classList.add(`theme-${themeName}`);
 }
 
 function playFx(kind) {
@@ -151,6 +158,32 @@ function playAmbientPulse() {
       playFx("select");
     }
   }, 6500);
+}
+
+function animateArcherShot(attacker, target) {
+  if (!projectileLayerEl) return;
+  const boardRect = boardEl.getBoundingClientRect();
+  const fromRect = cellMap[attacker.position.y][attacker.position.x].getBoundingClientRect();
+  const toRect = cellMap[target.position.y][target.position.x].getBoundingClientRect();
+  const fromX = fromRect.left - boardRect.left + fromRect.width / 2;
+  const fromY = fromRect.top - boardRect.top + fromRect.height / 2;
+  const toX = toRect.left - boardRect.left + toRect.width / 2;
+  const toY = toRect.top - boardRect.top + toRect.height / 2;
+  const arrow = document.createElement("div");
+  arrow.className = "arrow-projectile";
+  const angle = Math.atan2(toY - fromY, toX - fromX);
+  arrow.style.left = `${fromX}px`;
+  arrow.style.top = `${fromY}px`;
+  arrow.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+  projectileLayerEl.appendChild(arrow);
+  arrow.animate(
+    [
+      { left: `${fromX}px`, top: `${fromY}px`, opacity: 0.9 },
+      { left: `${toX}px`, top: `${toY}px`, opacity: 1 },
+    ],
+    { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" }
+  );
+  window.setTimeout(() => arrow.remove(), 280);
 }
 
 function getTerrainAt(x, y) {
@@ -297,7 +330,14 @@ function renderBoardCells() {
     const letter = document.createElement("div");
     letter.className = "letter";
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
-    letter.textContent = UNIT_ICON_BY_TYPE[u.type];
+    if (UNIT_IMAGE_BY_TYPE[u.type]) {
+      const img = document.createElement("img");
+      img.src = UNIT_IMAGE_BY_TYPE[u.type];
+      img.alt = UNIT_DEFS[u.type].name;
+      letter.appendChild(img);
+    } else {
+      letter.textContent = UNIT_ICON_BY_TYPE[u.type];
+    }
     const name = document.createElement("div");
     name.className = "name";
     name.textContent = UNIT_DEFS[u.type].name;
@@ -340,10 +380,19 @@ function renderCardsUI() {
   const c = GAME.cardsByPlayer[p];
   return `
     <div style="margin-bottom:6px;">${playerLabel(p)} cards (use one per turn):</div>
-    <div class="top-controls">
-      <button class="btn card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Strike (${c.strike})</button>
-      <button class="btn card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Guard (${c.guard})</button>
-      <button class="btn card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>Reposition (${c.reposition})</button>
+    <div class="cards-wrap">
+      <button class="btn card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+        <span class="card-title"><span>Strike</span><span>${c.strike}</span></span>
+        <span class="card-desc">Empower next attack with +2 damage.</span>
+      </button>
+      <button class="btn card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+        <span class="card-title"><span>Guard</span><span>${c.guard}</span></span>
+        <span class="card-desc">Shield one ally and absorb damage.</span>
+      </button>
+      <button class="btn card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
+        <span class="card-title"><span>Reposition</span><span>${c.reposition}</span></span>
+        <span class="card-desc">Move one ally quickly up to 2 cells.</span>
+      </button>
     </div>
     <div class="hint">${GAME.pendingCard ? `Pending card: ${GAME.pendingCard}` : "No pending card."}</div>
   `;
@@ -376,6 +425,11 @@ function switchTurn() {
 function consumeCard(card) {
   GAME.cardsByPlayer[GAME.activePlayer][card] -= 1;
   GAME.cardUsedThisTurn = true;
+  gameScreenEl.classList.remove("effect-strike", "effect-guard", "effect-reposition");
+  gameScreenEl.classList.add(`effect-${card}`);
+  window.setTimeout(() => {
+    gameScreenEl.classList.remove("effect-strike", "effect-guard", "effect-reposition");
+  }, 520);
 }
 
 function handleCardClick(cx, cy, unit) {
@@ -442,6 +496,7 @@ function applyAttack(attacker, target) {
     addLog(`${playerLabel(attacker.player)} ${UNIT_DEFS[attacker.type].name} hit ${UNIT_DEFS[target.type].name} for ${damage}.`);
   }
   if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
+  if (attacker.type === "A") animateArcherShot(attacker, target);
   cellMap[target.position.y][target.position.x].classList.add("attack-hit");
   playFx(attacker.type === "A" ? "archer" : "hit");
   if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
@@ -739,6 +794,8 @@ function initUI() {
   goToBattleBtn = document.getElementById("goToBattleBtn");
   backHomeBtn = document.getElementById("backHomeBtn");
   scenarioCardsEl = document.getElementById("scenarioCards");
+  projectileLayerEl = document.getElementById("projectileLayer");
+  themeSelectEl = document.getElementById("themeSelect");
 
   resetBtn.addEventListener("click", resetMatch);
   modeSelectEl.addEventListener("change", () => {
@@ -751,6 +808,9 @@ function initUI() {
   });
   goToBattleBtn.addEventListener("click", enterGameplay);
   backHomeBtn.addEventListener("click", backToHome);
+  themeSelectEl.addEventListener("change", () => {
+    applyTheme(themeSelectEl.value);
+  });
   setupScenarioCards();
 }
 
@@ -758,6 +818,7 @@ function main() {
   initUI();
   createBoard();
   attachRulesDialog();
+  applyTheme("kurukshetra");
   playAmbientPulse();
 }
 

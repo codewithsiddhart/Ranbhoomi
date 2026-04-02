@@ -9,6 +9,9 @@
   <body>
     <main class="app">
       <section id="homeScreen" class="screen home-screen">
+        <div class="home-particles" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
         <div class="hero-overlay"></div>
         <header class="home-topbar">
           <h1 class="title">Ranbhoomi</h1>
@@ -68,17 +71,29 @@
                 <option value="ai">P1 vs AI</option>
               </select>
             </label>
+            <label class="control-group" for="themeSelect">
+              Theme
+              <select id="themeSelect" class="input">
+                <option value="kurukshetra">Kurukshetra Dawn</option>
+                <option value="royal">Royal Arena</option>
+                <option value="forest">Green Forest</option>
+                <option value="sunset">War Sunset</option>
+              </select>
+            </label>
             <label class="control-group checkbox-group" for="fogToggle">
               <input id="fogToggle" type="checkbox" />
               Fog of War
             </label>
           </div>
-        </div>
+        </header>
 
         <div class="game-layout">
           <section class="battlefield-panel">
             <h2 class="section-title">Battlefield Area</h2>
-            <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+            <div id="boardStage" class="board-stage">
+              <div id="projectileLayer" class="projectile-layer" aria-hidden="true"></div>
+              <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+            </div>
           </section>
 
           <aside class="logs-panel">
@@ -115,7 +130,7 @@
               <li>Hill boosts archer attacks.</li>
               <li>One card can be used each turn.</li>
             </ul>
-          </div>
+          </aside>
         </div>
       </section>
     </main>
