@@ -145,6 +145,19 @@
               <input id="fogToggle" type="checkbox" />
               Fog of War
             </label>
+            <button id="timerToggleBtn" class="btn btn-leaf chess-clock-btn" type="button" aria-pressed="true" title="10 minutes per player — counts down on your turn">
+              Clock: 10m each — On
+            </button>
+            <div class="chess-clocks" aria-label="Time remaining per player">
+              <div id="clockP1Wrap" class="clock-face p1">
+                <span class="clock-label">P1</span>
+                <span id="clockP1" class="clock-time">10:00</span>
+              </div>
+              <div id="clockP2Wrap" class="clock-face p2">
+                <span class="clock-label">P2</span>
+                <span id="clockP2" class="clock-time">10:00</span>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -152,7 +165,7 @@
           <section class="battlefield-panel">
             <h2 class="section-title">Battlefield Area</h2>
             <div id="boardStage" class="board-stage">
-              <div id="board" class="board" role="application" aria-label="8 by 8 battlefield board"></div>
+              <div id="board" class="board" role="application" aria-label="10 by 10 battlefield board"></div>
             </div>
           </section>
 
@@ -184,6 +197,7 @@
               Select your unit, move to highlighted cells, then attack enemies in range. Use cards smartly.
             </div>
             <ul class="rules-list">
+              <li>Chess clock: 10 minutes per player (counts down on your turn); running out loses the match.</li>
               <li>Defeat the enemy Leader to win.</li>
               <li>Pandav morale: +1 damage within 2 tiles of your Leader.</li>
               <li>Kaurav fear: enemy Pandav units beside the Kaurav Leader lose 1 move.</li>
@@ -210,6 +224,7 @@
         <section>
           <h3>Turn Flow</h3>
           <ul>
+            <li>Each player has 10 minutes on a chess clock; only the active player’s time decreases.</li>
             <li>Pandav and Kaurav hosts alternate turns (P1 then P2).</li>
             <li>Against AI you always pick your army: Pandav or Kaurav (you stay on P1).</li>
             <li>In local play, who is Pandav vs Kaurav is randomized each match.</li>
@@ -235,7 +250,8 @@
             <li>Terrain: Forest, Hill, River, and Mud — each changes movement or combat.</li>
             <li>Leader auras: Pandav morale (attack) and Kaurav intimidation (enemy move).</li>
             <li>Momentum rewards repeated attacks or successful defense.</li>
-            <li>Random wind or battlefield mud can slightly shift damage each turn.</li>
+            <li>Random wind, omens, and battlefield spirits can shift damage, movement, or heal troops — watch the banner each turn.</li>
+            <li>Chess clock: 10 minutes per player; only the active player’s time counts down.</li>
             <li>Fog of War toggle to hide enemy information at distance.</li>
             <li>Mode select supports local multiplayer and AI opponent.</li>
           </ul>

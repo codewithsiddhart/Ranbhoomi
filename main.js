@@ -1,5 +1,7 @@
+const TIMER_BUDGET_SEC = 600;
+
 const GAME = {
-  size: 8,
+  size: 10,
   activePlayer: 1,
   winner: null,
   mode: "local",
@@ -21,6 +23,8 @@ const GAME = {
     2: { strike: 2, guard: 2, reposition: 2 },
   },
   animations: { attackerId: null, targetId: null, archerImpact: null, movedUnitId: null },
+  /** @type {{ x: number; y: number; text: string; absorbed: boolean } | null} */
+  damagePopup: null,
   selectedScenarioLabel: "Opening Formation",
   momentumByUnitId: {},
   turnEventMessage: null,
@@ -28,6 +32,8 @@ const GAME = {
   firstStrikeBonusPandav: 0,
   /** Which player (1 or 2) commands the Pandav host; the other is Kaurav. */
   pandavPlayer: 1,
+  timerEnabled: true,
+  timerSecondsLeft: { 1: TIMER_BUDGET_SEC, 2: TIMER_BUDGET_SEC },
 };
 
 const UNIT_DEFS = {
@@ -39,7 +45,16 @@ const UNIT_DEFS = {
   R: { name: "Chariot", move: 2, hp: 7, damage: 3, melee: true, archerRange: null },
 };
 
+/** Photoreal unit art (local JPEGs); SVG used on load error. */
 const UNIT_IMAGE_BY_TYPE = {
+  L: "assets/units/leader.jpg",
+  I: "assets/units/infantry.jpg",
+  A: "assets/units/archer.jpg",
+  C: "assets/units/cavalry.jpg",
+  E: "assets/units/elephant.jpg",
+  R: "assets/units/chariot.jpg",
+};
+const UNIT_IMAGE_FALLBACK_SVG = {
   L: "sprites/unit_leader.svg",
   I: "sprites/unit_infantry.svg",
   A: "sprites/unit_archer.svg",
@@ -60,6 +75,7 @@ const LOG_ICON = {
   turn: "🔁",
   info: "📜",
   cheer: "🎖️",
+  magic: "✨",
 };
 const SCENARIO_PREVIEW_META = {
   opening: {
@@ -89,6 +105,10 @@ const SCENARIO_PREVIEW_META = {
 };
 
 let cellMap = [];
+/** @type {ReturnType<typeof setTimeout> | null} */
+let aiTurnTimeoutId = null;
+/** @type {ReturnType<typeof setInterval> | null} */
+let chessTimerIntervalId = null;
 let boardEl;
 let currentPlayerLabel;
 let turnBannerEl;
@@ -119,6 +139,11 @@ let eventBannerEl;
 let toastEl;
 let sideSelectEl;
 let aiSideWrapEl;
+let clockP1El;
+let clockP2El;
+let clockP1Wrap;
+let clockP2Wrap;
+let timerToggleBtn;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -154,6 +179,10 @@ function getEffectiveMove(unit) {
   let m = UNIT_DEFS[unit.type].move;
   m -= getIntimidationMovePenalty(unit);
   if (GAME.mudTiles[posKey(unit.position.x, unit.position.y)]) m -= 1;
+  if (unit.player === GAME.activePlayer) {
+    m -= GAME.turnCombatBonus.movePenalty || 0;
+    if (unit.type === "C" || unit.type === "R") m += GAME.turnCombatBonus.cavalryMove || 0;
+  }
   return Math.max(1, m);
 }
 
@@ -227,20 +256,140 @@ function showToast(message, ms = 2600) {
   showToast._t = window.setTimeout(() => toastEl.classList.remove("visible"), ms);
 }
 
+function formatClock(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function updateTimerDisplay() {
+  if (!clockP1El || !clockP2El) return;
+  if (!GAME.timerEnabled) {
+    clockP1El.textContent = "—";
+    clockP2El.textContent = "—";
+    clockP1Wrap?.classList.remove("clock-active");
+    clockP2Wrap?.classList.remove("clock-active");
+    return;
+  }
+  clockP1El.textContent = formatClock(GAME.timerSecondsLeft[1]);
+  clockP2El.textContent = formatClock(GAME.timerSecondsLeft[2]);
+  clockP1Wrap?.classList.toggle("clock-active", GAME.activePlayer === 1 && !GAME.winner);
+  clockP2Wrap?.classList.toggle("clock-active", GAME.activePlayer === 2 && !GAME.winner);
+}
+
+function stopChessTimer() {
+  if (chessTimerIntervalId != null) {
+    window.clearInterval(chessTimerIntervalId);
+    chessTimerIntervalId = null;
+  }
+}
+
+function startChessTimer() {
+  stopChessTimer();
+  if (!GAME.timerEnabled) return;
+  chessTimerIntervalId = window.setInterval(() => {
+    if (GAME.winner || !gameScreenEl || gameScreenEl.classList.contains("hidden")) return;
+    const p = GAME.activePlayer;
+    GAME.timerSecondsLeft[p] = Math.max(0, GAME.timerSecondsLeft[p] - 1);
+    if (GAME.timerSecondsLeft[p] <= 0) {
+      const loser = p;
+      GAME.winner = loser === 1 ? 2 : 1;
+      stopChessTimer();
+      showToast(`${playerLabel(loser)} ran out of time — ${factionName(GAME.winner)} wins.`, 4200);
+      addLog({ icon: LOG_ICON.event, text: `${playerLabel(loser)}'s hourglass ran out.` });
+      rerender();
+      return;
+    }
+    updateTimerDisplay();
+  }, 1000);
+}
+
 function onTurnStart() {
   GAME.turnEventMessage = null;
-  GAME.turnCombatBonus = { archer: 0, melee: 0 };
+  GAME.turnCombatBonus = {
+    archer: 0,
+    melee: 0,
+    allDamage: 0,
+    leaderDamage: 0,
+    chargeDamage: 0,
+    movePenalty: 0,
+    cavalryMove: 0,
+  };
   if (GAME.winner) return;
-  if (Math.random() < 0.13) {
-    const r = Math.random();
-    if (r < 0.5) {
-      GAME.turnCombatBonus.archer = 1;
-      GAME.turnEventMessage = "Sudden wind — your archers strike with extra force this turn.";
-    } else {
-      GAME.turnCombatBonus.melee = -1;
-      GAME.turnEventMessage = "Mud and churned earth — melee hits slip (-1 damage this turn).";
+  if (Math.random() < 0.32) {
+    const rolls = [
+      { w: 11, fn: () => {
+          GAME.turnCombatBonus.archer = 1;
+          return "Sudden wind — your archers strike truer (+1 archer damage this turn).";
+        } },
+      { w: 11, fn: () => {
+          GAME.turnCombatBonus.melee = -1;
+          return "Churned mud — melee slips (−1 melee damage this turn).";
+        } },
+      { w: 8, fn: () => {
+          GAME.turnCombatBonus.melee = 1;
+          return "Agni’s spark — blades bite deeper (+1 melee damage this turn).";
+        } },
+      { w: 7, fn: () => {
+          GAME.turnCombatBonus.archer = -1;
+          return "Surya’s glare — sun in the eyes (−1 archer damage this turn).";
+        } },
+      { w: 7, fn: () => {
+          GAME.turnCombatBonus.allDamage = 1;
+          return "War drums — the line surges (+1 to all damage you deal this turn).";
+        } },
+      { w: 7, fn: () => {
+          GAME.turnCombatBonus.leaderDamage = 1;
+          return "Ancestors whisper — your Leader fights sharper (+1 Leader damage this turn).";
+        } },
+      { w: 6, fn: () => {
+          GAME.turnCombatBonus.chargeDamage = 1;
+          return "Open ground — riders charge true (+1 Cavalry & Chariot damage this turn).";
+        } },
+      { w: 6, fn: () => {
+          GAME.turnCombatBonus.cavalryMove = 1;
+          return "Ashwins’ favor — horses fly (+1 move for Cavalry & Chariot this turn).";
+        } },
+      { w: 5, fn: () => {
+          GAME.turnCombatBonus.movePenalty = 1;
+          return "Earth tremor — footing fails (−1 move for your army this turn, minimum 1).";
+        } },
+      { w: 9, fn: () => {
+          for (const u of GAME.units) {
+            if (u.player === GAME.activePlayer) {
+              u.hp = Math.min(UNIT_DEFS[u.type].hp, u.hp + 1);
+            }
+          }
+          return "Healing dew — the field remembers your oath (all your units +1 HP, to max).";
+        } },
+      { w: 5, fn: () => "Dead calm — no omen; rely on steel and order." },
+      { w: 4, fn: () => {
+          GAME.turnCombatBonus.archer = 1;
+          GAME.turnCombatBonus.melee = 1;
+          return "Twin omens — wind and dust favor both blade and bow (+1 melee & archer this turn).";
+        } },
+    ];
+    let sum = 0;
+    for (const r of rolls) sum += r.w;
+    let t = Math.random() * sum;
+    for (const r of rolls) {
+      t -= r.w;
+      if (t <= 0) {
+        GAME.turnEventMessage = r.fn();
+        break;
+      }
     }
-    addLog({ icon: LOG_ICON.event, text: GAME.turnEventMessage });
+    if (GAME.turnEventMessage) {
+      addLog({ icon: LOG_ICON.magic, text: GAME.turnEventMessage });
+      playFx("magic");
+      if (gameScreenEl) {
+        gameScreenEl.classList.remove("magic-surge");
+        void gameScreenEl.offsetWidth;
+        gameScreenEl.classList.add("magic-surge");
+        window.setTimeout(() => gameScreenEl.classList.remove("magic-surge"), 1100);
+      }
+    }
   }
   if (eventBannerEl) {
     eventBannerEl.textContent = GAME.turnEventMessage || "Field clear — command your line.";
@@ -339,6 +488,16 @@ function playFx(kind) {
       osc.stop(now + 0.25);
       return;
     }
+    if (kind === "magic") {
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(330, now);
+      osc.frequency.linearRampToValueAtTime(880, now + 0.14);
+      gain.gain.exponentialRampToValueAtTime(0.055, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      osc.start(now);
+      osc.stop(now + 0.35);
+      return;
+    }
     osc.type = "sawtooth";
     osc.frequency.setValueAtTime(160, now);
     osc.frequency.exponentialRampToValueAtTime(120, now + 0.16);
@@ -423,7 +582,13 @@ function canAttack(attacker, target) {
 }
 
 function attackTargets(unit) {
-  return GAME.units.filter((other) => canAttack(unit, other));
+  return GAME.units.filter((other) => {
+    if (!canAttack(unit, other)) return false;
+    if (GAME.fogEnabled && other.player !== unit.player) {
+      if (!isVisibleToPlayer(other.position.x, other.position.y, unit.player)) return false;
+    }
+    return true;
+  });
 }
 
 function computeDamage(attacker, target) {
@@ -439,10 +604,18 @@ function computeDamage(attacker, target) {
   const momentumBonus = getMomentumBonus(attacker);
   const homeBonus = attacker.player === GAME.pandavPlayer && GAME.firstStrikeBonusPandav > 0 ? 1 : 0;
   const isMelee = UNIT_DEFS[attacker.type].melee;
-  const eventMelee = isMelee ? GAME.turnCombatBonus.melee : 0;
-  const eventArcher = attacker.type === "A" ? GAME.turnCombatBonus.archer : 0;
   const riverPenalty =
     getTerrainAt(attacker.position.x, attacker.position.y) === "river" && isMelee ? 1 : 0;
+  let eventArcher = 0;
+  let eventMelee = 0;
+  let eventExtra = 0;
+  if (attacker.player === GAME.activePlayer) {
+    if (attacker.type === "A") eventArcher += GAME.turnCombatBonus.archer;
+    if (isMelee) eventMelee += GAME.turnCombatBonus.melee;
+    eventExtra += GAME.turnCombatBonus.allDamage;
+    if (attacker.type === "L") eventExtra += GAME.turnCombatBonus.leaderDamage;
+    if (attacker.type === "C" || attacker.type === "R") eventExtra += GAME.turnCombatBonus.chargeDamage;
+  }
   let total =
     base +
     lineBonus +
@@ -453,8 +626,9 @@ function computeDamage(attacker, target) {
     moraleBonus +
     momentumBonus +
     homeBonus +
+    eventArcher +
     eventMelee +
-    eventArcher -
+    eventExtra -
     riverPenalty;
   total = Math.max(1, total);
   return total;
@@ -543,6 +717,7 @@ function renderBoardCells() {
     for (let x = 0; x < GAME.size; x++) {
       const cell = cellMap[y][x];
       cell.innerHTML = "";
+      cell.style.removeProperty("--arrow-angle");
       cell.classList.remove("terrain-forest", "terrain-hill", "terrain-river", "terrain-mud");
       const terrain = getTerrainAt(x, y);
       if (terrain === "forest") cell.classList.add("terrain-forest");
@@ -572,9 +747,14 @@ function renderBoardCells() {
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
     const img = document.createElement("img");
     img.className = "unit-sprite";
-    img.src = UNIT_IMAGE_BY_TYPE[u.type] || "sprites/unit_infantry.svg";
+    img.src = UNIT_IMAGE_BY_TYPE[u.type] || UNIT_IMAGE_FALLBACK_SVG[u.type];
     img.alt = UNIT_DEFS[u.type].name;
     img.decoding = "async";
+    img.loading = "lazy";
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = UNIT_IMAGE_FALLBACK_SVG[u.type] || "sprites/unit_infantry.svg";
+    };
     letter.appendChild(img);
     const name = document.createElement("div");
     name.className = "name";
@@ -614,8 +794,18 @@ function renderBoardCells() {
     cell.appendChild(unitEl);
   }
   if (GAME.animations.archerImpact) {
-    const { x, y } = GAME.animations.archerImpact;
-    cellMap[y][x].classList.add("archer-trail");
+    const { x, y, angle } = GAME.animations.archerImpact;
+    const c = cellMap[y][x];
+    c.classList.add("archer-trail");
+    if (typeof angle === "number") c.style.setProperty("--arrow-angle", `${angle}deg`);
+  }
+  if (GAME.damagePopup) {
+    const { x, y, text, absorbed } = GAME.damagePopup;
+    const cell = cellMap[y][x];
+    const pop = document.createElement("span");
+    pop.className = absorbed ? "damage-popup damage-popup-guard" : "damage-popup";
+    pop.textContent = absorbed ? text : `-${text}`;
+    cell.appendChild(pop);
   }
 }
 
@@ -652,7 +842,7 @@ function renderStatus() {
     }
   }
   cardsStateEl.innerHTML = renderCardsUI();
-  attachCardButtons();
+  updateTimerDisplay();
 }
 
 function renderCardsUI() {
@@ -676,22 +866,6 @@ function renderCardsUI() {
     </div>
     <div class="hint">${GAME.pendingCard ? `Pending card: ${GAME.pendingCard}` : "No pending card."}</div>
   `;
-}
-
-function attachCardButtons() {
-  const btns = cardsStateEl.querySelectorAll(".card-btn");
-  for (const b of btns) {
-    b.addEventListener("click", () => {
-      const card = b.dataset.card;
-      if (GAME.cardUsedThisTurn) return;
-      const left = GAME.cardsByPlayer[GAME.activePlayer][card];
-      if (left <= 0) return;
-      GAME.pendingCard = card;
-      GAME.cardStep = card === "reposition" ? "pick-unit" : "pick-target";
-      addLog({ icon: LOG_ICON.card, text: `${playerLabel(GAME.activePlayer)} preparing ${card} card.` });
-      rerender();
-    });
-  }
 }
 
 function switchTurn() {
@@ -748,8 +922,12 @@ function handleCardClick(cx, cy, unit) {
     if (GAME.cardStep === "pick-cell") {
       const selected = GAME.units.find((u) => u.id === GAME.selectedUnitId);
       if (!selected) return true;
-      if (!isEmpty(cx, cy) || maxDiagDistance(selected.position.x, selected.position.y, cx, cy) > 2) {
-        addLog({ icon: LOG_ICON.info, text: "Invalid Reposition destination." });
+      if (
+        !isEmpty(cx, cy) ||
+        maxDiagDistance(selected.position.x, selected.position.y, cx, cy) > 2 ||
+        !canOccupyTerrain(selected, cx, cy)
+      ) {
+        addLog({ icon: LOG_ICON.info, text: "Invalid Reposition destination (terrain or range)." });
         return true;
       }
       clearMomentum(selected.id);
@@ -775,12 +953,20 @@ function applyAttack(attacker, target) {
   if (usedHome) GAME.firstStrikeBonusPandav = 0;
   GAME.animations.attackerId = attacker.id;
   GAME.animations.targetId = target.id;
-  GAME.animations.archerImpact = attacker.type === "A" ? { x: target.position.x, y: target.position.y } : null;
+  if (attacker.type === "A") {
+    const dx = target.position.x - attacker.position.x;
+    const dy = target.position.y - attacker.position.y;
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    GAME.animations.archerImpact = { x: target.position.x, y: target.position.y, angle };
+  } else {
+    GAME.animations.archerImpact = null;
+  }
   if (GAME.guardByUnitId[target.id]) {
     GAME.guardByUnitId[target.id] -= damage;
     if (GAME.guardByUnitId[target.id] <= 0) delete GAME.guardByUnitId[target.id];
     bumpMomentum(attacker, "attack");
     addLog({ icon: LOG_ICON.hit, text: `${playerLabel(attacker.player)} attack absorbed by Guard.` });
+    GAME.damagePopup = { x: target.position.x, y: target.position.y, text: "BLOCK", absorbed: true };
   } else {
     target.hp -= damage;
     bumpMomentum(attacker, "attack");
@@ -796,6 +982,7 @@ function applyAttack(attacker, target) {
     if (target.hp <= 0 && attacker.player === kauravPlayerNum() && GAME.mode === "ai") {
       addLog({ icon: LOG_ICON.info, text: "Regroup — losses happen; the war is not one swing." });
     }
+    GAME.damagePopup = { x: target.position.x, y: target.position.y, text: String(damage), absorbed: false };
   }
   if (GAME.strikeBuffByPlayer[attacker.player]) GAME.strikeBuffByPlayer[attacker.player] = false;
   cellMap[target.position.y][target.position.x].classList.add("attack-hit");
@@ -805,8 +992,9 @@ function applyAttack(attacker, target) {
     GAME.animations.attackerId = null;
     GAME.animations.targetId = null;
     GAME.animations.archerImpact = null;
+    GAME.damagePopup = null;
     rerender();
-  }, 140);
+  }, 440);
 }
 
 function takeActionAt(x, y) {
@@ -831,6 +1019,14 @@ function takeActionAt(x, y) {
     const attacker = GAME.units.find((u) => u.id === GAME.selectedUnitId);
     if (!attacker || attacker.player !== GAME.activePlayer || !canAttack(attacker, unit)) {
       addLog({ icon: LOG_ICON.info, text: "Select a valid attacker first." });
+      rerender();
+      return;
+    }
+    if (
+      GAME.fogEnabled &&
+      !isVisibleToPlayer(unit.position.x, unit.position.y, GAME.activePlayer)
+    ) {
+      addLog({ icon: LOG_ICON.info, text: "That foe is hidden in the fog — move scouts closer." });
       rerender();
       return;
     }
@@ -901,68 +1097,68 @@ function initTerrain() {
   GAME.mudTiles = {};
   const mapByScenario = {
     opening: [
-      [2, 3, "forest"],
-      [5, 4, "forest"],
-      [3, 3, "hill"],
+      [3, 4, "forest"],
+      [6, 5, "forest"],
       [4, 4, "hill"],
-      [1, 4, "river"],
-      [6, 3, "river"],
-      [2, 4, "mud"],
-      [5, 3, "mud"],
+      [5, 5, "hill"],
+      [1, 5, "river"],
+      [8, 4, "river"],
+      [2, 5, "mud"],
+      [7, 4, "mud"],
     ],
     frontline: [
-      [2, 3, "hill"],
-      [3, 3, "hill"],
-      [4, 4, "forest"],
-      [5, 4, "forest"],
-      [3, 4, "river"],
-      [4, 3, "river"],
-      [1, 4, "mud"],
-      [6, 3, "mud"],
+      [2, 4, "hill"],
+      [3, 4, "hill"],
+      [4, 5, "forest"],
+      [5, 5, "forest"],
+      [3, 5, "river"],
+      [4, 4, "river"],
+      [1, 5, "mud"],
+      [8, 4, "mud"],
     ],
     flanks: [
-      [0, 3, "forest"],
-      [7, 4, "forest"],
-      [1, 2, "hill"],
-      [6, 5, "hill"],
-      [3, 4, "river"],
-      [4, 3, "river"],
-      [2, 5, "mud"],
-      [5, 2, "mud"],
+      [0, 4, "forest"],
+      [9, 5, "forest"],
+      [1, 3, "hill"],
+      [8, 6, "hill"],
+      [4, 5, "river"],
+      [5, 4, "river"],
+      [2, 6, "mud"],
+      [7, 3, "mud"],
     ],
     "leader-hunt": [
-      [3, 2, "forest"],
-      [4, 5, "forest"],
-      [3, 4, "hill"],
-      [4, 3, "hill"],
-      [2, 3, "river"],
-      [5, 4, "river"],
-      [2, 2, "mud"],
-      [5, 5, "mud"],
+      [3, 3, "forest"],
+      [6, 6, "forest"],
+      [3, 5, "hill"],
+      [4, 4, "hill"],
+      [2, 4, "river"],
+      [7, 5, "river"],
+      [2, 3, "mud"],
+      [7, 6, "mud"],
     ],
     "forest-ambush": [
-      [1, 2, "forest"],
-      [2, 2, "forest"],
-      [5, 5, "forest"],
-      [6, 5, "forest"],
-      [3, 3, "hill"],
+      [1, 3, "forest"],
+      [2, 3, "forest"],
+      [8, 7, "forest"],
+      [9, 7, "forest"],
       [4, 4, "hill"],
-      [4, 2, "river"],
-      [3, 5, "river"],
-      [2, 4, "mud"],
-      [5, 3, "mud"],
+      [5, 5, "hill"],
+      [4, 3, "river"],
+      [5, 6, "river"],
+      [2, 5, "mud"],
+      [7, 4, "mud"],
     ],
     "royal-siege": [
-      [3, 2, "hill"],
-      [4, 2, "hill"],
-      [3, 5, "forest"],
-      [4, 5, "forest"],
-      [2, 4, "hill"],
-      [5, 3, "hill"],
-      [3, 3, "river"],
+      [3, 3, "hill"],
+      [4, 3, "hill"],
+      [3, 7, "forest"],
+      [4, 7, "forest"],
+      [2, 5, "hill"],
+      [7, 4, "hill"],
       [4, 4, "river"],
-      [1, 3, "mud"],
-      [6, 4, "mud"],
+      [5, 5, "river"],
+      [1, 4, "mud"],
+      [8, 5, "mud"],
     ],
   };
   for (const [x, y, type] of mapByScenario[GAME.scenario]) {
@@ -976,35 +1172,113 @@ function initUnits() {
   const base = [];
   if (GAME.scenario === "opening") {
     base.push(
-      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 3, 2], ["p1-I3", "I", 1, 4, 2],
-      ["p1-A1", "A", 1, 2, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C", "C", 1, 0, 2], ["p1-E", "E", 1, 6, 1], ["p1-R", "R", 1, 7, 1],
-      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 2, 5], ["p2-I2", "I", 2, 3, 5], ["p2-I3", "I", 2, 4, 5],
-      ["p2-A1", "A", 2, 2, 6], ["p2-A2", "A", 2, 4, 6], ["p2-C", "C", 2, 7, 5], ["p2-E", "E", 2, 1, 6], ["p2-R", "R", 2, 0, 6]
+      ["p1-L", "L", 1, 4, 0],
+      ["p1-I1", "I", 1, 3, 2],
+      ["p1-I2", "I", 1, 4, 2],
+      ["p1-I3", "I", 1, 5, 2],
+      ["p1-A1", "A", 1, 2, 1],
+      ["p1-A2", "A", 1, 6, 1],
+      ["p1-C", "C", 1, 0, 2],
+      ["p1-E", "E", 1, 8, 1],
+      ["p1-R", "R", 1, 9, 1],
+      ["p2-L", "L", 2, 5, 9],
+      ["p2-I1", "I", 2, 3, 7],
+      ["p2-I2", "I", 2, 4, 7],
+      ["p2-I3", "I", 2, 5, 7],
+      ["p2-A1", "A", 2, 2, 8],
+      ["p2-A2", "A", 2, 6, 8],
+      ["p2-C", "C", 2, 9, 7],
+      ["p2-E", "E", 2, 1, 8],
+      ["p2-R", "R", 2, 0, 8]
     );
   } else if (GAME.scenario === "frontline") {
     base.push(
-      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 3], ["p1-I2", "I", 1, 3, 3], ["p1-I3", "I", 1, 4, 3], ["p1-A1", "A", 1, 1, 2], ["p1-C", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 2],
-      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 2, 4], ["p2-I2", "I", 2, 3, 4], ["p2-I3", "I", 2, 4, 4], ["p2-A1", "A", 2, 6, 5], ["p2-C", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 5]
+      ["p1-L", "L", 1, 3, 1],
+      ["p1-I1", "I", 1, 2, 3],
+      ["p1-I2", "I", 1, 3, 3],
+      ["p1-I3", "I", 1, 4, 3],
+      ["p1-A1", "A", 1, 1, 2],
+      ["p1-C", "C", 1, 7, 2],
+      ["p1-E", "E", 1, 5, 1],
+      ["p1-R", "R", 1, 8, 2],
+      ["p2-L", "L", 2, 4, 8],
+      ["p2-I1", "I", 2, 2, 6],
+      ["p2-I2", "I", 2, 3, 6],
+      ["p2-I3", "I", 2, 4, 6],
+      ["p2-A1", "A", 2, 6, 6],
+      ["p2-C", "C", 2, 1, 6],
+      ["p2-E", "E", 2, 2, 7],
+      ["p2-R", "R", 2, 0, 6]
     );
   } else if (GAME.scenario === "flanks") {
     base.push(
-      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 3, 2], ["p1-A1", "A", 1, 2, 1], ["p1-C1", "C", 1, 0, 3], ["p1-C2", "C", 1, 7, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 6, 0],
-      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 4, 5], ["p2-A1", "A", 2, 5, 6], ["p2-C1", "C", 2, 0, 5], ["p2-C2", "C", 2, 7, 4], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 1, 7]
+      ["p1-L", "L", 1, 4, 0],
+      ["p1-I1", "I", 1, 4, 2],
+      ["p1-A1", "A", 1, 2, 1],
+      ["p1-C1", "C", 1, 0, 3],
+      ["p1-C2", "C", 1, 9, 2],
+      ["p1-E", "E", 1, 6, 1],
+      ["p1-R", "R", 1, 8, 0],
+      ["p2-L", "L", 2, 5, 9],
+      ["p2-I1", "I", 2, 4, 7],
+      ["p2-A1", "A", 2, 5, 8],
+      ["p2-C1", "C", 2, 0, 6],
+      ["p2-C2", "C", 2, 9, 5],
+      ["p2-E", "E", 2, 2, 7],
+      ["p2-R", "R", 2, 1, 8]
     );
   } else if (GAME.scenario === "forest-ambush") {
     base.push(
-      ["p1-L", "L", 1, 2, 0], ["p1-I1", "I", 1, 1, 2], ["p1-I2", "I", 1, 3, 2], ["p1-A1", "A", 1, 0, 1], ["p1-A2", "A", 1, 4, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
-      ["p2-L", "L", 2, 5, 7], ["p2-I1", "I", 2, 4, 5], ["p2-I2", "I", 2, 6, 5], ["p2-A1", "A", 2, 7, 6], ["p2-A2", "A", 2, 3, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 2, 6], ["p2-R", "R", 2, 0, 6]
+      ["p1-L", "L", 1, 2, 0],
+      ["p1-I1", "I", 1, 1, 2],
+      ["p1-I2", "I", 1, 3, 2],
+      ["p1-A1", "A", 1, 0, 1],
+      ["p1-A2", "A", 1, 4, 1],
+      ["p1-C1", "C", 1, 6, 2],
+      ["p1-E", "E", 1, 5, 1],
+      ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 5, 9],
+      ["p2-I1", "I", 2, 4, 7],
+      ["p2-I2", "I", 2, 6, 7],
+      ["p2-A1", "A", 2, 7, 6],
+      ["p2-A2", "A", 2, 3, 6],
+      ["p2-C1", "C", 2, 1, 7],
+      ["p2-E", "E", 2, 2, 6],
+      ["p2-R", "R", 2, 0, 6]
     );
   } else if (GAME.scenario === "leader-hunt") {
     base.push(
-      ["p1-L", "L", 1, 3, 1], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 5, 1], ["p1-R", "R", 1, 7, 1],
-      ["p2-L", "L", 2, 4, 6], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+      ["p1-L", "L", 1, 3, 1],
+      ["p1-I1", "I", 1, 2, 2],
+      ["p1-I2", "I", 1, 4, 2],
+      ["p1-A1", "A", 1, 1, 1],
+      ["p1-C1", "C", 1, 6, 2],
+      ["p1-E", "E", 1, 5, 1],
+      ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 8],
+      ["p2-I1", "I", 2, 3, 7],
+      ["p2-I2", "I", 2, 5, 7],
+      ["p2-A1", "A", 2, 6, 6],
+      ["p2-C1", "C", 2, 1, 6],
+      ["p2-E", "E", 2, 3, 6],
+      ["p2-R", "R", 2, 0, 6]
     );
   } else {
     base.push(
-      ["p1-L", "L", 1, 3, 0], ["p1-I1", "I", 1, 2, 2], ["p1-I2", "I", 1, 4, 2], ["p1-A1", "A", 1, 1, 1], ["p1-C1", "C", 1, 6, 2], ["p1-E", "E", 1, 4, 1], ["p1-R", "R", 1, 7, 1],
-      ["p2-L", "L", 2, 4, 7], ["p2-I1", "I", 2, 3, 5], ["p2-I2", "I", 2, 5, 5], ["p2-A1", "A", 2, 6, 6], ["p2-C1", "C", 2, 1, 5], ["p2-E", "E", 2, 3, 6], ["p2-R", "R", 2, 0, 6]
+      ["p1-L", "L", 1, 3, 0],
+      ["p1-I1", "I", 1, 2, 2],
+      ["p1-I2", "I", 1, 4, 2],
+      ["p1-A1", "A", 1, 1, 1],
+      ["p1-C1", "C", 1, 6, 2],
+      ["p1-E", "E", 1, 4, 1],
+      ["p1-R", "R", 1, 7, 1],
+      ["p2-L", "L", 2, 4, 9],
+      ["p2-I1", "I", 2, 3, 7],
+      ["p2-I2", "I", 2, 5, 7],
+      ["p2-A1", "A", 2, 6, 6],
+      ["p2-C1", "C", 2, 1, 6],
+      ["p2-E", "E", 2, 3, 6],
+      ["p2-R", "R", 2, 0, 6]
     );
   }
   for (const [id, type, player, x, y] of base) {
@@ -1013,6 +1287,11 @@ function initUnits() {
 }
 
 function resetMatch() {
+  if (aiTurnTimeoutId != null) {
+    window.clearTimeout(aiTurnTimeoutId);
+    aiTurnTimeoutId = null;
+  }
+  GAME.timerSecondsLeft = { 1: TIMER_BUDGET_SEC, 2: TIMER_BUDGET_SEC };
   GAME.activePlayer = 1;
   GAME.winner = null;
   GAME.selectedUnitId = null;
@@ -1029,6 +1308,7 @@ function resetMatch() {
   GAME.actionLog = [];
   GAME.momentumByUnitId = {};
   GAME.animations = { attackerId: null, targetId: null, archerImpact: null, movedUnitId: null };
+  GAME.damagePopup = null;
   if (GAME.mode === "local") {
     GAME.pandavPlayer = Math.random() < 0.5 ? 1 : 2;
   } else {
@@ -1051,6 +1331,8 @@ function resetMatch() {
   onTurnStart();
   rerender();
   queueAiIfNeeded();
+  stopChessTimer();
+  startChessTimer();
 }
 
 function getNearestEnemy(unit) {
@@ -1116,8 +1398,15 @@ function aiTurn() {
 }
 
 function queueAiIfNeeded() {
+  if (aiTurnTimeoutId != null) {
+    window.clearTimeout(aiTurnTimeoutId);
+    aiTurnTimeoutId = null;
+  }
   if (GAME.mode === "ai" && GAME.activePlayer === 2 && !GAME.winner) {
-    window.setTimeout(aiTurn, 500);
+    aiTurnTimeoutId = window.setTimeout(() => {
+      aiTurnTimeoutId = null;
+      aiTurn();
+    }, 500);
   }
 }
 
@@ -1176,6 +1465,7 @@ function enterGameplay() {
 }
 
 function backToHome() {
+  stopChessTimer();
   gameScreenEl.classList.add("hidden");
   homeScreenEl.classList.remove("hidden");
 }
@@ -1210,6 +1500,18 @@ function initUI() {
   toastEl = document.getElementById("appToast");
   sideSelectEl = document.getElementById("sideSelect");
   aiSideWrapEl = document.getElementById("aiSideWrap");
+  clockP1El = document.getElementById("clockP1");
+  clockP2El = document.getElementById("clockP2");
+  clockP1Wrap = document.getElementById("clockP1Wrap");
+  clockP2Wrap = document.getElementById("clockP2Wrap");
+  timerToggleBtn = document.getElementById("timerToggleBtn");
+
+  function syncTimerButton() {
+    if (!timerToggleBtn) return;
+    const on = GAME.timerEnabled;
+    timerToggleBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    timerToggleBtn.textContent = on ? "Clock: 10m each — On" : "Clock: Off";
+  }
 
   function syncAiSideVisibility() {
     if (aiSideWrapEl) aiSideWrapEl.classList.toggle("hidden", modeSelectEl.value !== "ai");
@@ -1239,6 +1541,36 @@ function initUI() {
   setupScenarioCards();
   updateScenarioPreview(GAME.scenario);
   syncAiSideVisibility();
+  syncTimerButton();
+
+  if (timerToggleBtn) {
+    timerToggleBtn.addEventListener("click", () => {
+      GAME.timerEnabled = !GAME.timerEnabled;
+      syncTimerButton();
+      if (GAME.timerEnabled) {
+        GAME.timerSecondsLeft = { 1: TIMER_BUDGET_SEC, 2: TIMER_BUDGET_SEC };
+        startChessTimer();
+      } else {
+        stopChessTimer();
+      }
+      updateTimerDisplay();
+    });
+  }
+
+  cardsStateEl.addEventListener("click", (e) => {
+    const b = e.target.closest(".card-btn");
+    if (!b || b.disabled) return;
+    const card = b.dataset.card;
+    if (!card || GAME.cardUsedThisTurn) return;
+    const left = GAME.cardsByPlayer[GAME.activePlayer][card];
+    if (left <= 0) return;
+    GAME.pendingCard = card;
+    GAME.cardStep = card === "reposition" ? "pick-unit" : "pick-target";
+    addLog({ icon: LOG_ICON.card, text: `${playerLabel(GAME.activePlayer)} preparing ${card} card.` });
+    rerender();
+  });
+
+  updateTimerDisplay();
 }
 
 function main() {
