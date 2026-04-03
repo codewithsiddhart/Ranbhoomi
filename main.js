@@ -20,7 +20,7 @@ const GAME = {
     1: { strike: 2, guard: 2, reposition: 2 },
     2: { strike: 2, guard: 2, reposition: 2 },
   },
-  animations: { attackerId: null, targetId: null, archerImpact: null },
+  animations: { attackerId: null, targetId: null, archerImpact: null, movedUnitId: null },
   selectedScenarioLabel: "Opening Formation",
   momentumByUnitId: {},
   turnEventMessage: null,
@@ -39,7 +39,14 @@ const UNIT_DEFS = {
   R: { name: "Chariot", move: 2, hp: 7, damage: 3, melee: true, archerRange: null },
 };
 
-const UNIT_ICON_BY_TYPE = { L: "👑", I: "🛡️", A: "🏹", C: "🐎", E: "🐘", R: "🛞" };
+const UNIT_IMAGE_BY_TYPE = {
+  L: "sprites/unit_leader.svg",
+  I: "sprites/unit_infantry.svg",
+  A: "sprites/unit_archer.svg",
+  C: "sprites/unit_cavalry.svg",
+  E: "sprites/unit_elephant.svg",
+  R: "sprites/unit_chariot.svg",
+};
 
 const LOG_ICON = {
   move: "🧭",
@@ -54,7 +61,6 @@ const LOG_ICON = {
   info: "📜",
   cheer: "🎖️",
 };
-const UNIT_IMAGE_BY_TYPE = { R: "assets/chariot.svg" };
 const SCENARIO_PREVIEW_META = {
   opening: {
     title: "Battlefield Recon: Opening Formation",
@@ -290,7 +296,9 @@ function addLog(lineOrEntry) {
 
 function applyTheme(themeName) {
   document.body.classList.remove("theme-kurukshetra", "theme-royal", "theme-forest", "theme-sunset");
-  if (themeName && themeName !== "kurukshetra") document.body.classList.add(`theme-${themeName}`);
+  const t = themeName || "kurukshetra";
+  if (t === "kurukshetra") document.body.classList.add("theme-kurukshetra");
+  else document.body.classList.add(`theme-${t}`);
 }
 
 function playFx(kind) {
@@ -519,6 +527,17 @@ function highlightState() {
   }
 }
 
+function cellTerrainTitle(x, y) {
+  const parts = [];
+  const terrain = getTerrainAt(x, y);
+  if (terrain === "forest") parts.push("Forest — archers deal less damage to targets here");
+  if (terrain === "hill") parts.push("Hill — archers standing here gain +1 damage");
+  if (terrain === "river") parts.push("River — only cavalry & chariots may stand here; melee from river is weaker");
+  if (GAME.mudTiles[posKey(x, y)]) parts.push("Mud — movement from this tile is reduced by 1");
+  if (!parts.length) parts.push("Open ground");
+  return parts.join(". ") + ".";
+}
+
 function renderBoardCells() {
   for (let y = 0; y < GAME.size; y++) {
     for (let x = 0; x < GAME.size; x++) {
@@ -530,6 +549,7 @@ function renderBoardCells() {
       if (terrain === "hill") cell.classList.add("terrain-hill");
       if (terrain === "river") cell.classList.add("terrain-river");
       if (GAME.mudTiles[posKey(x, y)]) cell.classList.add("terrain-mud");
+      cell.title = cellTerrainTitle(x, y);
     }
   }
   for (const u of GAME.units) {
@@ -546,27 +566,51 @@ function renderBoardCells() {
     if (countThreatsAgainst(u) > 0) unitEl.classList.add("unit-threat");
     if (GAME.animations.attackerId === u.id) unitEl.classList.add("anim-attack");
     if (GAME.animations.targetId === u.id) unitEl.classList.add("anim-hit");
+    if (GAME.animations.movedUnitId === u.id) unitEl.classList.add("anim-move-hop");
     const letter = document.createElement("div");
     letter.className = "letter";
     if (u.type === "L" && u.hp <= Math.ceil(UNIT_DEFS.L.hp / 2)) letter.classList.add("ability-ready");
-    if (UNIT_IMAGE_BY_TYPE[u.type]) {
-      const img = document.createElement("img");
-      img.src = UNIT_IMAGE_BY_TYPE[u.type];
-      img.alt = UNIT_DEFS[u.type].name;
-      letter.appendChild(img);
-    } else {
-      letter.textContent = UNIT_ICON_BY_TYPE[u.type];
-    }
+    const img = document.createElement("img");
+    img.className = "unit-sprite";
+    img.src = UNIT_IMAGE_BY_TYPE[u.type] || "sprites/unit_infantry.svg";
+    img.alt = UNIT_DEFS[u.type].name;
+    img.decoding = "async";
+    letter.appendChild(img);
     const name = document.createElement("div");
     name.className = "name";
     name.textContent = UNIT_DEFS[u.type].name;
-    const hp = document.createElement("div");
-    hp.className = "hp";
-    const momTxt = mom && mom.count >= 1 ? ` · Mo ${mom.count}` : "";
-    hp.textContent = `HP ${u.hp}${GAME.guardByUnitId[u.id] ? " +Guard" : ""}${momTxt}`;
+    const maxHp = UNIT_DEFS[u.type].hp;
+    const pct = Math.max(0, Math.min(100, Math.round((100 * u.hp) / maxHp)));
+    const meta = document.createElement("div");
+    meta.className = "unit-meta";
+    const hpWrap = document.createElement("div");
+    hpWrap.className = "unit-hp-wrap";
+    hpWrap.title = `HP ${u.hp} / ${maxHp}`;
+    const hpFill = document.createElement("div");
+    hpFill.className = "unit-hp-fill";
+    hpFill.style.width = `${pct}%`;
+    hpWrap.appendChild(hpFill);
+    meta.appendChild(hpWrap);
+    const tags = document.createElement("div");
+    tags.className = "unit-tags";
+    if (GAME.guardByUnitId[u.id]) {
+      const g = document.createElement("span");
+      g.className = "unit-tag unit-tag-guard";
+      g.textContent = "G";
+      g.title = "Guard — absorbs incoming damage";
+      tags.appendChild(g);
+    }
+    if (mom && mom.count >= 1) {
+      const m = document.createElement("span");
+      m.className = "unit-tag unit-tag-mom";
+      m.textContent = `M${mom.count}`;
+      m.title = "Momentum streak";
+      tags.appendChild(m);
+    }
+    if (tags.childNodes.length) meta.appendChild(tags);
     unitEl.appendChild(letter);
     unitEl.appendChild(name);
-    unitEl.appendChild(hp);
+    unitEl.appendChild(meta);
     cell.appendChild(unitEl);
   }
   if (GAME.animations.archerImpact) {
@@ -710,10 +754,15 @@ function handleCardClick(cx, cy, unit) {
       }
       clearMomentum(selected.id);
       selected.position = { x: cx, y: cy };
+      GAME.animations.movedUnitId = selected.id;
       consumeCard("reposition");
       GAME.pendingCard = null;
       GAME.cardStep = null;
       addLog({ icon: LOG_ICON.move, text: `${playerLabel(p)} repositioned ${UNIT_DEFS[selected.type].name}.` });
+      window.setTimeout(() => {
+        GAME.animations.movedUnitId = null;
+        rerender();
+      }, 260);
       return true;
     }
   }
@@ -753,7 +802,9 @@ function applyAttack(attacker, target) {
   playFx(attacker.type === "A" ? "archer" : "hit");
   if (target.hp <= 0) GAME.units = GAME.units.filter((u) => u.id !== target.id);
   window.setTimeout(() => {
-    GAME.animations = { attackerId: null, targetId: null, archerImpact: null };
+    GAME.animations.attackerId = null;
+    GAME.animations.targetId = null;
+    GAME.animations.archerImpact = null;
     rerender();
   }, 140);
 }
@@ -802,6 +853,7 @@ function takeActionAt(x, y) {
   const from = { ...selected.position };
   clearMomentum(selected.id);
   selected.position = { x, y };
+  GAME.animations.movedUnitId = selected.id;
   playFx("move");
   addLog({
     icon: LOG_ICON.move,
@@ -813,6 +865,10 @@ function takeActionAt(x, y) {
     showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
   } else switchTurn();
   rerender();
+  window.setTimeout(() => {
+    GAME.animations.movedUnitId = null;
+    rerender();
+  }, 260);
   if (!GAME.winner) queueAiIfNeeded();
 }
 
@@ -972,6 +1028,7 @@ function resetMatch() {
   GAME.lastAction = "-";
   GAME.actionLog = [];
   GAME.momentumByUnitId = {};
+  GAME.animations = { attackerId: null, targetId: null, archerImpact: null, movedUnitId: null };
   if (GAME.mode === "local") {
     GAME.pandavPlayer = Math.random() < 0.5 ? 1 : 2;
   } else {
@@ -1039,6 +1096,7 @@ function aiTurn() {
     );
     clearMomentum(u.id);
     u.position = { x: moves[0].x, y: moves[0].y };
+    GAME.animations.movedUnitId = u.id;
     addLog({ icon: LOG_ICON.move, text: `AI moved ${UNIT_DEFS[u.type].name}.` });
     const winner = checkWin();
     if (winner) {
@@ -1046,6 +1104,10 @@ function aiTurn() {
       showToast(`${factionName(winner)} host claims the field. Victory!`, 3600);
     } else switchTurn();
     rerender();
+    window.setTimeout(() => {
+      GAME.animations.movedUnitId = null;
+      rerender();
+    }, 260);
     return;
   }
   addLog({ icon: LOG_ICON.info, text: "AI skipped turn." });

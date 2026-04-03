@@ -32,21 +32,33 @@
             <div class="lane lane-center"></div>
             <div class="lane lane-left"></div>
             <div class="lane lane-right"></div>
-            <span class="formation p1 f1"></span>
-            <span class="formation p1 f2"></span>
-            <span class="formation p1 f3"></span>
-            <span class="formation p2 f1"></span>
-            <span class="formation p2 f2"></span>
-            <span class="formation p2 f3"></span>
-          <div class="battle-glow"></div>
+            <div class="formation p1 f1" role="img" aria-label="Pandav vanguard">
+              <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="formation p1 f2" role="img" aria-label="Pandav support">
+              <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="formation p1 f3" role="img" aria-label="Pandav flank">
+              <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="formation p2 f1" role="img" aria-label="Kaurav vanguard">
+              <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="formation p2 f2" role="img" aria-label="Kaurav support">
+              <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="formation p2 f3" role="img" aria-label="Kaurav flank">
+              <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+            </div>
+            <div class="battle-glow" aria-hidden="true"></div>
             <button type="button" class="home-hotspot home-tree" data-home-bonus="strike" title="Ancient tree" aria-label="Ancient tree — click for a blessing">
-              🌳
+              <img src="sprites/icon_tree.svg" alt="" width="28" height="28" decoding="async" />
             </button>
             <button type="button" class="home-hotspot home-tent" data-home-bonus="strike" title="War camp" aria-label="War camp — click for a blessing">
-              ⛺
+              <img src="sprites/icon_tent.svg" alt="" width="28" height="28" decoding="async" />
             </button>
             <button type="button" class="home-hotspot home-river" data-home-bonus="strike" title="River" aria-label="River — click for a blessing">
-              🌊
+              <img src="sprites/icon_river.svg" alt="" width="28" height="28" decoding="async" />
             </button>
           </div>
         </section>
@@ -84,9 +96,12 @@
 
       <section id="gameScreen" class="screen game-screen hidden">
         <div class="game-bg-stack" aria-hidden="true">
+          <div class="game-bg-plains"></div>
+          <div class="game-bg-mountains"></div>
           <div class="game-bg-dusk"></div>
           <div class="game-bg-gold"></div>
           <div class="game-bg-dust"></div>
+          <div class="game-bg-fog"></div>
           <div class="game-bg-vignette"></div>
         </div>
         <header class="game-topbar">
