@@ -144,6 +144,16 @@ let clockP2El;
 let clockP1Wrap;
 let clockP2Wrap;
 let timerToggleBtn;
+let playLocalBtnEl;
+let playAiBtnEl;
+let homeSettingsBtnEl;
+let settingsDialogEl;
+let closeSettingsBtnEl;
+let settingsApplyBtnEl;
+let settingsThemeEl;
+let settingsModeEl;
+let settingsTimerEl;
+let settingsFogEl;
 
 function posKey(x, y) {
   return `${x}-${y}`;
@@ -848,23 +858,35 @@ function renderStatus() {
 function renderCardsUI() {
   const p = GAME.activePlayer;
   const c = GAME.cardsByPlayer[p];
+  const used = GAME.cardUsedThisTurn;
+  const fac = factionName(p);
+  const strikeDisabled = c.strike < 1 || used ? "disabled" : "";
+  const guardDisabled  = c.guard  < 1 || used ? "disabled" : "";
+  const reposDisabled  = c.reposition < 1 || used ? "disabled" : "";
+  const pending = GAME.pendingCard;
   return `
-    <div style="margin-bottom:6px;">${playerLabel(p)} cards (use one per turn):</div>
+    <div class="card-player-label">⚜ ${fac} War Cards · ${used ? "Card used this turn" : "One use per turn"}</div>
     <div class="cards-wrap">
-      <button class="btn btn-leaf card-btn" data-card="strike" ${c.strike < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
-        <span class="card-title"><span>Strike</span><span>${c.strike}</span></span>
-        <span class="card-desc">Empower next attack with +2 damage.</span>
+      <button class="card-btn${c.strike < 1 ? " card-depleted" : ""}" data-card="strike" ${strikeDisabled} title="Empower next attack with +2 damage">
+        <span class="card-glyph">⚡</span>
+        <span class="card-name">Strike</span>
+        <span class="card-rule">Next attack +2 damage</span>
+        <span class="card-charges">${c.strike}</span>
       </button>
-      <button class="btn btn-leaf card-btn" data-card="guard" ${c.guard < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
-        <span class="card-title"><span>Guard</span><span>${c.guard}</span></span>
-        <span class="card-desc">Shield one ally and absorb damage.</span>
+      <button class="card-btn${c.guard < 1 ? " card-depleted" : ""}" data-card="guard" ${guardDisabled} title="Shield a friendly unit to absorb incoming damage">
+        <span class="card-glyph">🛡️</span>
+        <span class="card-name">Guard</span>
+        <span class="card-rule">Shield ally from damage</span>
+        <span class="card-charges">${c.guard}</span>
       </button>
-      <button class="btn btn-leaf card-btn" data-card="reposition" ${c.reposition < 1 || GAME.cardUsedThisTurn ? "disabled" : ""}>
-        <span class="card-title"><span>Reposition</span><span>${c.reposition}</span></span>
-        <span class="card-desc">Move one ally quickly up to 2 cells.</span>
+      <button class="card-btn${c.reposition < 1 ? " card-depleted" : ""}" data-card="reposition" ${reposDisabled} title="Instantly move a friendly unit up to 2 tiles">
+        <span class="card-glyph">💨</span>
+        <span class="card-name">Reposition</span>
+        <span class="card-rule">Move ally up to 2 tiles</span>
+        <span class="card-charges">${c.reposition}</span>
       </button>
     </div>
-    <div class="hint">${GAME.pendingCard ? `Pending card: ${GAME.pendingCard}` : "No pending card."}</div>
+    ${pending ? `<div class="card-pending-hint">✦ Active: ${pending} — click a target on the board</div>` : ""}
   `;
 }
 
@@ -1097,66 +1119,109 @@ function initTerrain() {
   GAME.mudTiles = {};
   const mapByScenario = {
     opening: [
-      [3, 4, "forest"],
-      [6, 5, "forest"],
-      [4, 4, "hill"],
-      [5, 5, "hill"],
-      [1, 5, "river"],
-      [8, 4, "river"],
-      [2, 5, "mud"],
-      [7, 4, "mud"],
+      [0, 5, "forest"],
+      [1, 5, "forest"],
+      [8, 4, "forest"],
+      [9, 4, "forest"],
+      [3, 3, "hill"],
+      [6, 6, "hill"],
+      // River flows diagonally through center
+      [2, 5, "river"],
+      [3, 5, "river"],
+      [4, 5, "river"],
+      [5, 4, "river"],
+      [6, 4, "river"],
+      [7, 4, "river"],
+      [1, 6, "mud"],
+      [8, 3, "mud"],
     ],
     frontline: [
+      [0, 3, "forest"],
+      [1, 3, "forest"],
+      [8, 6, "forest"],
+      [9, 6, "forest"],
       [2, 4, "hill"],
       [3, 4, "hill"],
-      [4, 5, "forest"],
-      [5, 5, "forest"],
+      [7, 5, "hill"],
+      // River across center row
+      [1, 5, "river"],
+      [2, 5, "river"],
       [3, 5, "river"],
-      [4, 4, "river"],
-      [1, 5, "mud"],
-      [8, 4, "mud"],
+      [4, 5, "river"],
+      [5, 5, "river"],
+      [6, 5, "river"],
+      [1, 4, "mud"],
+      [8, 5, "mud"],
     ],
     flanks: [
       [0, 4, "forest"],
+      [0, 5, "forest"],
+      [9, 4, "forest"],
       [9, 5, "forest"],
-      [1, 3, "hill"],
-      [8, 6, "hill"],
+      [2, 3, "hill"],
+      [7, 6, "hill"],
+      // River flows from left-center to right-center
+      [2, 5, "river"],
+      [3, 5, "river"],
       [4, 5, "river"],
       [5, 4, "river"],
-      [2, 6, "mud"],
-      [7, 3, "mud"],
+      [6, 4, "river"],
+      [7, 4, "river"],
+      [3, 6, "mud"],
+      [6, 3, "mud"],
     ],
     "leader-hunt": [
-      [3, 3, "forest"],
-      [6, 6, "forest"],
+      [0, 3, "forest"],
+      [1, 3, "forest"],
+      [8, 6, "forest"],
+      [9, 6, "forest"],
       [3, 5, "hill"],
       [4, 4, "hill"],
-      [2, 4, "river"],
+      [6, 5, "hill"],
+      // Narrow river through middle
+      [3, 4, "river"],
+      [4, 4, "river"],
+      [5, 5, "river"],
+      [6, 5, "river"],
       [7, 5, "river"],
       [2, 3, "mud"],
       [7, 6, "mud"],
     ],
     "forest-ambush": [
+      [0, 3, "forest"],
       [1, 3, "forest"],
       [2, 3, "forest"],
-      [8, 7, "forest"],
-      [9, 7, "forest"],
+      [7, 6, "forest"],
+      [8, 6, "forest"],
+      [9, 6, "forest"],
       [4, 4, "hill"],
       [5, 5, "hill"],
-      [4, 3, "river"],
-      [5, 6, "river"],
+      // River cuts through the ambush zone
+      [3, 5, "river"],
+      [4, 5, "river"],
+      [5, 5, "river"],
+      [6, 4, "river"],
       [2, 5, "mud"],
       [7, 4, "mud"],
     ],
     "royal-siege": [
+      [0, 2, "forest"],
+      [1, 2, "forest"],
+      [8, 7, "forest"],
+      [9, 7, "forest"],
       [3, 3, "hill"],
       [4, 3, "hill"],
-      [3, 7, "forest"],
-      [4, 7, "forest"],
-      [2, 5, "hill"],
-      [7, 4, "hill"],
-      [4, 4, "river"],
-      [5, 5, "river"],
+      [5, 3, "hill"],
+      [2, 6, "hill"],
+      // River encircles the central fortress
+      [1, 5, "river"],
+      [2, 5, "river"],
+      [3, 5, "river"],
+      [4, 5, "river"],
+      [5, 4, "river"],
+      [6, 4, "river"],
+      [7, 4, "river"],
+      [8, 4, "river"],
       [1, 4, "mud"],
       [8, 5, "mud"],
     ],
@@ -1505,16 +1570,97 @@ function initUI() {
   clockP1Wrap = document.getElementById("clockP1Wrap");
   clockP2Wrap = document.getElementById("clockP2Wrap");
   timerToggleBtn = document.getElementById("timerToggleBtn");
+  playLocalBtnEl = document.getElementById("playLocalBtn");
+  playAiBtnEl = document.getElementById("playAiBtn");
+  homeSettingsBtnEl = document.getElementById("homeSettingsBtn");
+  settingsDialogEl = document.getElementById("settingsDialog");
+  closeSettingsBtnEl = document.getElementById("closeSettingsBtn");
+  settingsApplyBtnEl = document.getElementById("settingsApplyBtn");
+  settingsThemeEl = document.getElementById("settingsTheme");
+  settingsModeEl = document.getElementById("settingsMode");
+  settingsTimerEl = document.getElementById("settingsTimer");
+  settingsFogEl = document.getElementById("settingsFog");
 
   function syncTimerButton() {
     if (!timerToggleBtn) return;
     const on = GAME.timerEnabled;
     timerToggleBtn.setAttribute("aria-pressed", on ? "true" : "false");
-    timerToggleBtn.textContent = on ? "Clock: 10m each — On" : "Clock: Off";
+    timerToggleBtn.textContent = on ? "⏱ Clock: On" : "⏱ Clock: Off";
   }
 
   function syncAiSideVisibility() {
     if (aiSideWrapEl) aiSideWrapEl.classList.toggle("hidden", modeSelectEl.value !== "ai");
+  }
+
+  function applySettingsFromDialog() {
+    const theme = settingsThemeEl ? settingsThemeEl.value : "kurukshetra";
+    const mode  = settingsModeEl  ? settingsModeEl.value  : "local";
+    const timer = settingsTimerEl ? settingsTimerEl.checked : true;
+    const fog   = settingsFogEl   ? settingsFogEl.checked  : false;
+    applyTheme(theme);
+    if (themeSelectEl) themeSelectEl.value = theme;
+    GAME.mode = mode;
+    if (modeSelectEl) modeSelectEl.value = mode;
+    GAME.timerEnabled = timer;
+    GAME.fogEnabled = fog;
+    if (fogToggleEl) fogToggleEl.checked = fog;
+    syncAiSideVisibility();
+    syncTimerButton();
+  }
+
+  // Home screen: Play Local button
+  if (playLocalBtnEl) {
+    playLocalBtnEl.addEventListener("click", () => {
+      GAME.mode = "local";
+      if (modeSelectEl) modeSelectEl.value = "local";
+      syncAiSideVisibility();
+      enterGameplay();
+    });
+  }
+
+  // Home screen: Play vs AI button
+  if (playAiBtnEl) {
+    playAiBtnEl.addEventListener("click", () => {
+      GAME.mode = "ai";
+      if (modeSelectEl) modeSelectEl.value = "ai";
+      syncAiSideVisibility();
+      enterGameplay();
+    });
+  }
+
+  // Home screen: Settings button
+  if (homeSettingsBtnEl && settingsDialogEl) {
+    homeSettingsBtnEl.addEventListener("click", () => {
+      // Sync dialog controls to current state
+      if (settingsThemeEl && themeSelectEl) settingsThemeEl.value = themeSelectEl.value;
+      if (settingsModeEl && modeSelectEl) settingsModeEl.value = modeSelectEl.value;
+      if (settingsTimerEl) settingsTimerEl.checked = GAME.timerEnabled;
+      if (settingsFogEl) settingsFogEl.checked = GAME.fogEnabled;
+      settingsDialogEl.showModal();
+    });
+  }
+
+  if (closeSettingsBtnEl && settingsDialogEl) {
+    closeSettingsBtnEl.addEventListener("click", () => settingsDialogEl.close());
+  }
+
+  if (settingsApplyBtnEl && settingsDialogEl) {
+    settingsApplyBtnEl.addEventListener("click", () => {
+      applySettingsFromDialog();
+      settingsDialogEl.close();
+      // Enter gameplay after applying
+      GAME.mode = settingsModeEl ? settingsModeEl.value : "local";
+      syncAiSideVisibility();
+      enterGameplay();
+    });
+  }
+
+  // Settings dialog: live theme preview
+  if (settingsThemeEl) {
+    settingsThemeEl.addEventListener("change", () => {
+      applyTheme(settingsThemeEl.value);
+      if (themeSelectEl) themeSelectEl.value = settingsThemeEl.value;
+    });
   }
 
   setupHomeInteractives();
@@ -1533,7 +1679,8 @@ function initUI() {
     GAME.fogEnabled = fogToggleEl.checked;
     rerender();
   });
-  goToBattleBtn.addEventListener("click", enterGameplay);
+  // goToBattleBtn may not exist now (removed from HTML), but keep for safety
+  if (goToBattleBtn) goToBattleBtn.addEventListener("click", enterGameplay);
   backHomeBtn.addEventListener("click", backToHome);
   themeSelectEl.addEventListener("change", () => {
     applyTheme(themeSelectEl.value);

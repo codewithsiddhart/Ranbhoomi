@@ -1,5 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
-  <path d="M8 38L24 10l16 28H8z" fill="#C49A5C" stroke="#7A5230" stroke-width="1.5"/>
-  <path d="M12 38L24 18l12 20" fill="#A67C3E" opacity="0.85"/>
-  <rect x="6" y="38" width="36" height="3" rx="1" fill="#5C4030"/>
+  <!-- Shadow -->
+  <ellipse cx="24" cy="44" rx="16" ry="4" fill="#1A0E06" opacity="0.35"/>
+  <!-- Tent body -->
+  <path d="M4 38 L24 8 L44 38Z" fill="#C8802A" stroke="#8B5010" stroke-width="1.5"/>
+  <!-- Tent shade/sides -->
+  <path d="M4 38 L14 22 L24 28 L34 22 L44 38Z" fill="#A86A1A" opacity="0.7"/>
+  <!-- Tent entrance -->
+  <path d="M20 38 Q24 30 28 38Z" fill="#5A2E08"/>
+  <!-- Center pole top flag -->
+  <line x1="24" y1="8" x2="24" y2="2" stroke="#8B5010" stroke-width="1.5"/>
+  <path d="M24 2 L30 5 L24 8Z" fill="#D45020"/>
+  <!-- Tent stripes -->
+  <path d="M14 24 L20 36" stroke="#E89A38" stroke-width="1" opacity="0.5"/>
+  <path d="M34 24 L28 36" stroke="#E89A38" stroke-width="1" opacity="0.5"/>
 </svg>

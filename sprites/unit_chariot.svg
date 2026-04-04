@@ -1,22 +1,34 @@
-<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
   <defs>
-    <radialGradient id="cg1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(118 108) rotate(60) scale(130 130)">
-      <stop stop-color="#FFE2A2"/>
-      <stop offset="1" stop-color="#9A5F23"/>
+    <radialGradient id="charbody" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#D4A050"/>
+      <stop offset="100%" stop-color="#7A5020"/>
     </radialGradient>
-    <linearGradient id="cg2" x1="62" y1="156" x2="208" y2="122" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5D2F14"/>
-      <stop offset="1" stop-color="#C98238"/>
-    </linearGradient>
   </defs>
-  <circle cx="82" cy="177" r="43" fill="#5F3116"/>
-  <circle cx="82" cy="177" r="28" fill="#E0A34F"/>
-  <circle cx="174" cy="177" r="29" fill="#6A3617"/>
-  <circle cx="174" cy="177" r="17" fill="#D7923E"/>
-  <path d="M55 134L191 111L209 137L72 160L55 134Z" fill="url(#cg2)" stroke="#F4C06A" stroke-width="4"/>
-  <path d="M96 66C105 44 135 34 155 44C171 53 177 75 168 92L145 134L89 145L96 66Z" fill="url(#cg1)" stroke="#F0BC66" stroke-width="4"/>
-  <path d="M168 95L223 80" stroke="#DCA55A" stroke-width="7" stroke-linecap="round"/>
-  <path d="M218 76L238 69" stroke="#E7BF78" stroke-width="5" stroke-linecap="round"/>
-  <path d="M114 91C120 79 137 74 149 80" stroke="#7D491F" stroke-width="5" stroke-linecap="round"/>
-  <circle cx="121" cy="98" r="4" fill="#6F3D19"/>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="58" rx="20" ry="4" fill="#1A0E06" opacity="0.4"/>
+  <!-- Wheels -->
+  <circle cx="14" cy="50" r="9" fill="none" stroke="#8B6020" stroke-width="3"/>
+  <circle cx="14" cy="50" r="3" fill="#8B6020"/>
+  <line x1="14" y1="41" x2="14" y2="59" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="5" y1="50" x2="23" y2="50" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="7.6" y1="43.6" x2="20.4" y2="56.4" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="7.6" y1="56.4" x2="20.4" y2="43.6" stroke="#8B6020" stroke-width="1.5"/>
+
+  <circle cx="50" cy="50" r="9" fill="none" stroke="#8B6020" stroke-width="3"/>
+  <circle cx="50" cy="50" r="3" fill="#8B6020"/>
+  <line x1="50" y1="41" x2="50" y2="59" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="41" y1="50" x2="59" y2="50" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="43.6" y1="43.6" x2="56.4" y2="56.4" stroke="#8B6020" stroke-width="1.5"/>
+  <line x1="43.6" y1="56.4" x2="56.4" y2="43.6" stroke="#8B6020" stroke-width="1.5"/>
+  <!-- Chariot basket/body -->
+  <path d="M10 42 Q10 30 32 30 Q54 30 54 42 L52 48 L12 48Z" fill="url(#charbody)" stroke="#6A4010" stroke-width="1.5"/>
+  <!-- Driver -->
+  <circle cx="32" cy="22" r="6" fill="#C89050" stroke="#7A5228" stroke-width="1.2"/>
+  <rect x="27" y="27" width="10" height="8" rx="2" fill="#6A4818" stroke="#4A3010" stroke-width="1"/>
+  <!-- Axle -->
+  <line x1="14" y1="48" x2="50" y2="48" stroke="#5A3A10" stroke-width="2.5"/>
+  <!-- Flag/banner -->
+  <line x1="36" y1="28" x2="36" y2="14" stroke="#8B6020" stroke-width="1.5"/>
+  <path d="M36 14 L44 17 L36 20Z" fill="#D45020"/>
 </svg>

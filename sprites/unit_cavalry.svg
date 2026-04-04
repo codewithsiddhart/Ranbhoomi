@@ -1,8 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <ellipse cx="34" cy="52" rx="14" ry="5" fill="#2A1E12" opacity="0.35"/>
-  <path d="M18 44c4-14 12-22 22-24 6-1 12 2 14 8 2 6-2 12-10 14-8 2-18 0-26-2z" fill="#6B4E3A" stroke="#3D2918" stroke-width="1.5"/>
-  <ellipse cx="40" cy="28" rx="7" ry="5" transform="rotate(-15 40 28)" fill="#8B6B4F"/>
-  <circle cx="46" cy="22" r="5" fill="#A67C52" stroke="#4A3220" stroke-width="1.2"/>
-  <path d="M30 36l-8 10M26 32l-10 6" stroke="#4A3220" stroke-width="2" stroke-linecap="round"/>
-  <path d="M14 42c6-2 10-6 12-12" stroke="#5C4030" stroke-width="2.5" fill="none"/>
+  <defs>
+    <radialGradient id="horse" cx="50%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#8B6B50"/>
+      <stop offset="100%" stop-color="#4A3020"/>
+    </radialGradient>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="34" cy="58" rx="16" ry="4" fill="#1A0E06" opacity="0.4"/>
+  <!-- Horse body -->
+  <ellipse cx="34" cy="42" rx="17" ry="11" fill="url(#horse)" stroke="#3D2818" stroke-width="1.2"/>
+  <!-- Horse head/neck -->
+  <path d="M46 34 Q52 28 50 22 Q48 18 44 20 Q40 22 42 30 L46 34Z" fill="#7A5A3A" stroke="#3D2818" stroke-width="1.2"/>
+  <!-- Horse legs -->
+  <path d="M20 50 L18 60M26 52 L24 62M40 52 L40 62M46 50 L48 60" stroke="#4A3020" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Horse mane -->
+  <path d="M44 22 Q46 16 42 14 Q40 18 42 22" fill="#3A2010" stroke="#2A1808" stroke-width="0.8"/>
+  <!-- Rider silhouette -->
+  <ellipse cx="32" cy="30" rx="7" ry="8" fill="#5A3C20" stroke="#3A2210" stroke-width="1"/>
+  <!-- Rider head -->
+  <circle cx="32" cy="22" r="5" fill="#C8904A" stroke="#7A5228" stroke-width="1.2"/>
+  <!-- Spear -->
+  <line x1="28" y1="28" x2="14" y2="14" stroke="#8B6B3A" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M14 14 L12 10 L16 12Z" fill="#C8A050"/>
 </svg>

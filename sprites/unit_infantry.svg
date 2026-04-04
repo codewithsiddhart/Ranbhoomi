@@ -1,7 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <ellipse cx="32" cy="50" rx="12" ry="5" fill="#2A1E12" opacity="0.4"/>
-  <path d="M22 46V28l10-8 10 8v18" stroke="#6B4423" stroke-width="3" stroke-linejoin="round" fill="#4A3220"/>
-  <rect x="18" y="26" width="28" height="20" rx="3" fill="#7D5230" stroke="#C99552" stroke-width="1.5"/>
-  <path d="M40 20l12-10v36" stroke="#8A5C2E" stroke-width="2.5" stroke-linecap="round"/>
-  <circle cx="32" cy="18" r="6" fill="#C99552" stroke="#5C3D1E" stroke-width="1.5"/>
+  <defs>
+    <radialGradient id="infshield" cx="40%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#9AB8E0"/>
+      <stop offset="100%" stop-color="#3A5C8A"/>
+    </radialGradient>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="58" rx="12" ry="4" fill="#1A0E06" opacity="0.45"/>
+  <!-- Legs -->
+  <path d="M26 46 L22 58M36 46 L38 58" stroke="#4A3A28" stroke-width="3" stroke-linecap="round"/>
+  <!-- Body/armour -->
+  <rect x="24" y="30" width="16" height="18" rx="4" fill="#6A5838" stroke="#4A3A20" stroke-width="1.5"/>
+  <!-- Shield -->
+  <path d="M16 26 Q16 40 24 46 Q32 52 40 46 Q48 40 48 26 Q40 20 32 18 Q24 20 16 26Z" fill="url(#infshield)" stroke="#2A4A7A" stroke-width="1.5" opacity="0.82"/>
+  <!-- Shield emblem -->
+  <path d="M32 25 L34 30 L32 35 L30 30Z" fill="#FFD080" opacity="0.9"/>
+  <!-- Head / helmet -->
+  <circle cx="32" cy="20" r="8" fill="#8A7050" stroke="#5A4A2A" stroke-width="1.5"/>
+  <!-- Helmet crest -->
+  <path d="M24 16 Q32 6 40 16" stroke="#D45020" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Spear -->
+  <line x1="44" y1="48" x2="58" y2="12" stroke="#8B6A3A" stroke-width="2" stroke-linecap="round"/>
+  <path d="M58 12 L55 8 L62 10Z" fill="#C8A050"/>
 </svg>

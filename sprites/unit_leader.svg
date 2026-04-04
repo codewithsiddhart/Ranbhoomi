@@ -1,12 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="lg" x1="18" y1="12" x2="46" y2="52" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F4D78C"/>
-      <stop offset="1" stop-color="#B87A28"/>
-    </linearGradient>
+    <radialGradient id="lbg" cx="40%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#FFE090"/>
+      <stop offset="55%" stop-color="#D4962A"/>
+      <stop offset="100%" stop-color="#7A4A10"/>
+    </radialGradient>
+    <radialGradient id="face" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#F0C87A"/>
+      <stop offset="100%" stop-color="#B87A2A"/>
+    </radialGradient>
   </defs>
-  <ellipse cx="32" cy="48" rx="14" ry="6" fill="#3D2914" opacity="0.45"/>
-  <path d="M32 8L36 18H44L38 24L40 34L32 28L24 34L26 24L20 18H28L32 8Z" fill="url(#lg)" stroke="#8B5A1E" stroke-width="1.5"/>
-  <circle cx="32" cy="38" r="10" fill="#5C3D1E" stroke="#E8C078" stroke-width="1.5"/>
-  <path d="M26 36h12M32 32v8" stroke="#E8C078" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="56" rx="12" ry="4" fill="#1A0E06" opacity="0.5"/>
+  <!-- Crown -->
+  <path d="M20 22L22 14L26 20L32 12L38 20L42 14L44 22H20Z" fill="url(#lbg)" stroke="#8B5A0A" stroke-width="1.2"/>
+  <!-- Crown gems -->
+  <circle cx="26" cy="18" r="2.5" fill="#E8505A"/>
+  <circle cx="32" cy="14" r="3" fill="#4AC8E8"/>
+  <circle cx="38" cy="18" r="2.5" fill="#E8505A"/>
+  <!-- Head -->
+  <circle cx="32" cy="30" r="10" fill="url(#face)" stroke="#8B5A1E" stroke-width="1.5"/>
+  <!-- Face details -->
+  <circle cx="29" cy="28" r="1.5" fill="#5A3010"/>
+  <circle cx="35" cy="28" r="1.5" fill="#5A3010"/>
+  <path d="M28 33q4 3 8 0" stroke="#5A3010" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+  <!-- Armour/body suggestion -->
+  <path d="M22 40q2-6 10-6 8 0 10 6" fill="#7A5228" stroke="#5A3A18" stroke-width="1"/>
 </svg>

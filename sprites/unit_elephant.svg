@@ -1,9 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <ellipse cx="34" cy="54" rx="16" ry="5" fill="#2A1E12" opacity="0.35"/>
-  <ellipse cx="36" cy="34" rx="18" ry="14" fill="#7A7368" stroke="#4A4540" stroke-width="1.5"/>
-  <ellipse cx="22" cy="30" rx="8" ry="9" fill="#8A8378" stroke="#4A4540" stroke-width="1.5"/>
-  <path d="M14 32c-4 6-4 12 0 14h6v-8" fill="#7A7368" stroke="#4A4540" stroke-width="1.5"/>
-  <path d="M10 44h8M50 40v10M42 44v8M30 44v10" stroke="#4A4540" stroke-width="2.5" stroke-linecap="round"/>
-  <circle cx="18" cy="28" r="2" fill="#2A2824"/>
-  <path d="M8 34c2-4 6-6 10-6" stroke="#4A4540" stroke-width="2" fill="none"/>
+  <defs>
+    <radialGradient id="eleph" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#8A8A90"/>
+      <stop offset="100%" stop-color="#4A4A52"/>
+    </radialGradient>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="32" cy="58" rx="18" ry="4.5" fill="#1A0E06" opacity="0.45"/>
+  <!-- Body -->
+  <ellipse cx="34" cy="42" rx="18" ry="14" fill="url(#eleph)" stroke="#3A3A42" stroke-width="1.5"/>
+  <!-- Head -->
+  <ellipse cx="44" cy="28" rx="12" ry="10" fill="#7A7A82" stroke="#3A3A42" stroke-width="1.2"/>
+  <!-- Trunk -->
+  <path d="M50 34 Q56 42 54 50 Q52 54 48 52" stroke="#6A6A72" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <!-- Ear -->
+  <ellipse cx="36" cy="28" rx="7" ry="9" fill="#8A6060" stroke="#5A4042" stroke-width="1" opacity="0.85"/>
+  <!-- Eye -->
+  <circle cx="46" cy="24" r="2.5" fill="#2A2A2A"/>
+  <circle cx="47" cy="23" r="0.8" fill="#FFF" opacity="0.7"/>
+  <!-- Tusk -->
+  <path d="M52 34 Q60 34 62 30" stroke="#E8E0C8" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Legs -->
+  <path d="M20 52 L20 62M28 54 L28 62M38 54 L38 62M46 52 L46 62" stroke="#4A4A52" stroke-width="3" stroke-linecap="round"/>
+  <!-- Rider/howdah -->
+  <rect x="24" y="28" width="14" height="10" rx="2" fill="#8B5A1E" stroke="#5A3A10" stroke-width="1"/>
+  <circle cx="31" cy="24" r="5" fill="#C89050" stroke="#7A5228" stroke-width="1"/>
 </svg>

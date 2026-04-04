@@ -3,97 +3,185 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ranbhoomi</title>
+    <title>Ranbhoomi — Kurukshetra</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
+
     <main class="app">
+      <!-- ═══════════════════════════════════════════════════════════ HOME SCREEN -->
       <section id="homeScreen" class="screen home-screen">
         <div class="home-bg-stack" aria-hidden="true">
           <div class="home-bg-sky"></div>
           <div class="home-bg-canopy"></div>
+          <div class="home-bg-particles"></div>
         </div>
         <div class="hero-overlay"></div>
-        <header class="home-topbar">
-          <p class="title-kicker">The Great War Awaits</p>
-          <h1 class="title">Ranbhoomi</h1>
-          <p class="subtitle">Kurukshetra Command Grounds</p>
-          <button id="goToBattleBtn" class="btn btn-primary btn-leaf" type="button">Enter Gameplay</button>
-        </header>
 
-        <section class="battle-preview" aria-label="Battlefield preview">
-          <div class="battle-preview-head">
-            <h2 id="battlePreviewTitle">Battlefield Recon: Opening Formation</h2>
-            <p id="battlePreviewDesc">Balanced frontline lanes with stable terrain and broad maneuver options.</p>
-          </div>
-          <div id="battleMapPreview" class="battle-map preview-opening" aria-hidden="true">
-            <div class="battle-grid"></div>
-            <div class="lane lane-center"></div>
-            <div class="lane lane-left"></div>
-            <div class="lane lane-right"></div>
-            <div class="formation p1 f1" role="img" aria-label="Pandav vanguard">
-              <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+        <div class="home-content">
+          <!-- LEFT PANEL: Brand + Navigation -->
+          <div class="home-left-panel">
+            <div class="home-brand">
+              <p class="title-kicker">The Great War of Kurukshetra</p>
+              <h1 class="title">Ranbhoomi</h1>
+              <div class="title-ornament">
+                <span class="ornament-line"></span>
+                <span class="ornament-diamond"></span>
+                <span class="ornament-line"></span>
+              </div>
+              <p class="subtitle">Command your host. Claim the field.</p>
             </div>
-            <div class="formation p1 f2" role="img" aria-label="Pandav support">
-              <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
-            </div>
-            <div class="formation p1 f3" role="img" aria-label="Pandav flank">
-              <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
-            </div>
-            <div class="formation p2 f1" role="img" aria-label="Kaurav vanguard">
-              <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
-            </div>
-            <div class="formation p2 f2" role="img" aria-label="Kaurav support">
-              <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
-            </div>
-            <div class="formation p2 f3" role="img" aria-label="Kaurav flank">
-              <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
-            </div>
-            <div class="battle-glow" aria-hidden="true"></div>
-            <button type="button" class="home-hotspot home-tree" data-home-bonus="strike" title="Ancient tree" aria-label="Ancient tree — click for a blessing">
-              <img src="sprites/icon_tree.svg" alt="" width="28" height="28" decoding="async" />
-            </button>
-            <button type="button" class="home-hotspot home-tent" data-home-bonus="strike" title="War camp" aria-label="War camp — click for a blessing">
-              <img src="sprites/icon_tent.svg" alt="" width="28" height="28" decoding="async" />
-            </button>
-            <button type="button" class="home-hotspot home-river" data-home-bonus="strike" title="River" aria-label="River — click for a blessing">
-              <img src="sprites/icon_river.svg" alt="" width="28" height="28" decoding="async" />
-            </button>
-          </div>
-        </section>
 
-        <section class="scenario-panel">
-          <h2>Choose Your Battlefield Scenario</h2>
-          <div id="scenarioCards" class="scenario-grid">
-            <button class="scenario-card selected" data-scenario="opening" type="button">
-              <span class="scenario-name">Opening Formation</span>
-              <span class="scenario-desc">Balanced setup to learn control and timing.</span>
-            </button>
-            <button class="scenario-card" data-scenario="frontline" type="button">
-              <span class="scenario-name">Frontline Clash</span>
-              <span class="scenario-desc">Early infantry pressure and quick engagements.</span>
-            </button>
-            <button class="scenario-card" data-scenario="flanks" type="button">
-              <span class="scenario-name">Flank Pressure</span>
-              <span class="scenario-desc">Fast cavalry lanes and side attacks.</span>
-            </button>
-            <button class="scenario-card" data-scenario="leader-hunt" type="button">
-              <span class="scenario-name">Leader Hunt</span>
-              <span class="scenario-desc">Tactical route to expose the enemy leader.</span>
-            </button>
-            <button class="scenario-card" data-scenario="forest-ambush" type="button">
-              <span class="scenario-name">Forest Ambush</span>
-              <span class="scenario-desc">Dense greenery and hidden archer threats.</span>
-            </button>
-            <button class="scenario-card" data-scenario="royal-siege" type="button">
-              <span class="scenario-name">Royal Siege</span>
-              <span class="scenario-desc">Castle approach with high-risk center control.</span>
-            </button>
+            <nav class="home-nav" aria-label="Game mode selection">
+              <button id="playLocalBtn" class="home-nav-btn" type="button">
+                <span class="nav-btn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+                    <path d="M8 8h6v6H8zm10 0h6v6h-6zM8 18h6v6H8zm10 0h6v6h-6z" fill="currentColor" opacity=".85"/>
+                    <path d="M6 2h20a2 2 0 012 2v24a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  </svg>
+                </span>
+                <span class="nav-btn-text">
+                  <span class="nav-btn-title">Play Local</span>
+                  <span class="nav-btn-desc">Two players · One device</span>
+                </span>
+                <span class="nav-btn-arrow" aria-hidden="true">›</span>
+              </button>
+
+              <button id="playAiBtn" class="home-nav-btn home-nav-btn--ai" type="button">
+                <span class="nav-btn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+                    <circle cx="16" cy="12" r="6" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M12 10l3 4 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M4 28c0-6.627 5.373-10 12-10s12 3.373 12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="nav-btn-text">
+                  <span class="nav-btn-title">Play vs AI</span>
+                  <span class="nav-btn-desc">Challenge the war machine</span>
+                </span>
+                <span class="nav-btn-arrow" aria-hidden="true">›</span>
+              </button>
+
+              <button id="homeSettingsBtn" class="home-nav-btn home-nav-btn--settings" type="button">
+                <span class="nav-btn-icon" aria-hidden="true">
+                  <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+                    <circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M16 2v4M16 26v4M2 16h4M26 16h4M6.1 6.1l2.8 2.8M23.1 23.1l2.8 2.8M25.9 6.1l-2.8 2.8M8.9 23.1l-2.8 2.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  </svg>
+                </span>
+                <span class="nav-btn-text">
+                  <span class="nav-btn-title">Settings</span>
+                  <span class="nav-btn-desc">Theme · Clock · Fog of war</span>
+                </span>
+                <span class="nav-btn-arrow" aria-hidden="true">›</span>
+              </button>
+            </nav>
+
+            <footer class="home-lore">
+              <p>Eighteen days. Two armies. One destiny.</p>
+              <div class="unit-legend">
+                <span class="legend-pill">Infantry</span>
+                <span class="legend-pill">Archer</span>
+                <span class="legend-pill">Cavalry</span>
+                <span class="legend-pill">Elephant</span>
+                <span class="legend-pill">Chariot</span>
+                <span class="legend-pill">Leader</span>
+              </div>
+            </footer>
           </div>
-        </section>
+
+          <!-- RIGHT PANEL: Battle Preview + Scenarios -->
+          <div class="home-right-panel">
+            <section class="battle-preview" aria-label="Battlefield preview">
+              <div class="battle-preview-head">
+                <h2 id="battlePreviewTitle">Battlefield Recon: Opening Formation</h2>
+                <p id="battlePreviewDesc">Balanced frontline lanes with stable terrain and broad maneuver options.</p>
+              </div>
+              <div id="battleMapPreview" class="battle-map preview-opening" aria-hidden="true">
+                <div class="battle-grid"></div>
+                <div class="lane lane-center"></div>
+                <div class="lane lane-left"></div>
+                <div class="lane lane-right"></div>
+                <!-- P1 formations -->
+                <div class="formation p1 f1" role="img" aria-label="Pandav vanguard">
+                  <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <div class="formation p1 f2" role="img" aria-label="Pandav support">
+                  <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <div class="formation p1 f3" role="img" aria-label="Pandav flank">
+                  <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <!-- P2 formations -->
+                <div class="formation p2 f1" role="img" aria-label="Kaurav vanguard">
+                  <img src="sprites/unit_infantry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <div class="formation p2 f2" role="img" aria-label="Kaurav support">
+                  <img src="sprites/unit_archer.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <div class="formation p2 f3" role="img" aria-label="Kaurav flank">
+                  <img src="sprites/unit_cavalry.svg" alt="" class="formation-sprite" width="40" height="40" decoding="async" />
+                </div>
+                <div class="battle-glow" aria-hidden="true"></div>
+                <!-- Interactive hotspots -->
+                <button type="button" class="home-hotspot home-tree" data-home-bonus="strike" title="Ancient Banyan" aria-label="Ancient Banyan — click for a blessing">
+                  <img src="sprites/icon_tree.svg" alt="" width="28" height="28" decoding="async" />
+                </button>
+                <button type="button" class="home-hotspot home-tent" data-home-bonus="strike" title="War Camp" aria-label="War camp — click for a blessing">
+                  <img src="sprites/icon_tent.svg" alt="" width="28" height="28" decoding="async" />
+                </button>
+                <button type="button" class="home-hotspot home-river" data-home-bonus="strike" title="Sacred River" aria-label="Sacred river — click for a blessing">
+                  <img src="sprites/icon_river.svg" alt="" width="28" height="28" decoding="async" />
+                </button>
+                <!-- Ambient river animation strip -->
+                <div class="preview-river-strip" aria-hidden="true"></div>
+              </div>
+            </section>
+
+            <section class="scenario-panel">
+              <h2>Choose Your Battlefield Scenario</h2>
+              <div id="scenarioCards" class="scenario-grid">
+                <button class="scenario-card selected" data-scenario="opening" type="button">
+                  <span class="scenario-icon" aria-hidden="true">⚔️</span>
+                  <span class="scenario-name">Opening Formation</span>
+                  <span class="scenario-desc">Balanced setup to learn control and timing.</span>
+                </button>
+                <button class="scenario-card" data-scenario="frontline" type="button">
+                  <span class="scenario-icon" aria-hidden="true">🛡️</span>
+                  <span class="scenario-name">Frontline Clash</span>
+                  <span class="scenario-desc">Early infantry pressure and quick engagements.</span>
+                </button>
+                <button class="scenario-card" data-scenario="flanks" type="button">
+                  <span class="scenario-icon" aria-hidden="true">🐎</span>
+                  <span class="scenario-name">Flank Pressure</span>
+                  <span class="scenario-desc">Fast cavalry lanes and side attacks.</span>
+                </button>
+                <button class="scenario-card" data-scenario="leader-hunt" type="button">
+                  <span class="scenario-icon" aria-hidden="true">👑</span>
+                  <span class="scenario-name">Leader Hunt</span>
+                  <span class="scenario-desc">Tactical route to expose the enemy leader.</span>
+                </button>
+                <button class="scenario-card" data-scenario="forest-ambush" type="button">
+                  <span class="scenario-icon" aria-hidden="true">🌳</span>
+                  <span class="scenario-name">Forest Ambush</span>
+                  <span class="scenario-desc">Dense greenery and hidden archer threats.</span>
+                </button>
+                <button class="scenario-card" data-scenario="royal-siege" type="button">
+                  <span class="scenario-icon" aria-hidden="true">🏯</span>
+                  <span class="scenario-name">Royal Siege</span>
+                  <span class="scenario-desc">Castle approach with high-risk center control.</span>
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
       </section>
 
+      <!-- ═══════════════════════════════════════════════════════════ GAME SCREEN -->
       <section id="gameScreen" class="screen game-screen hidden">
         <div class="game-bg-stack" aria-hidden="true">
           <div class="game-bg-plains"></div>
@@ -104,116 +192,168 @@
           <div class="game-bg-fog"></div>
           <div class="game-bg-vignette"></div>
         </div>
+
+        <!-- TOP BAR -->
         <header class="game-topbar">
-          <div class="status">
+          <div class="topbar-status">
             <div id="turnBanner" class="turn-banner p1">
               Turn — <strong id="currentPlayerLabel">Pandav (P1)</strong>
             </div>
             <p id="eventBanner" class="event-banner">Field clear — command your line.</p>
             <div id="winnerLabel" class="winner hidden"></div>
           </div>
-          <div class="top-controls">
-            <button id="backHomeBtn" class="btn btn-secondary btn-leaf" type="button">Home</button>
-            <button id="rulesBtn" class="btn btn-leaf" type="button">Rules</button>
-            <button id="resetBtn" class="btn btn-secondary btn-leaf" type="button">Reset Match</button>
-          </div>
-          <div class="top-controls">
-            <label class="control-group" for="modeSelect">
-              Mode
-              <select id="modeSelect" class="input input-round">
-                <option value="local">Local — two players</option>
-                <option value="ai">You vs AI</option>
-              </select>
-            </label>
-            <label id="aiSideWrap" class="control-group ai-side-wrap" for="sideSelect">
-              Your army
-              <select id="sideSelect" class="input input-round">
-                <option value="pandav">Lead Pandav host (P1)</option>
-                <option value="kaurav">Lead Kaurav host (P1)</option>
-              </select>
-            </label>
-            <label class="control-group" for="themeSelect">
-              Theme
-              <select id="themeSelect" class="input input-round">
-                <option value="kurukshetra">Kurukshetra Dawn</option>
-                <option value="royal">Royal Arena</option>
-                <option value="forest">Green Forest</option>
-                <option value="sunset">War Sunset</option>
-              </select>
-            </label>
-            <label class="control-group checkbox-group" for="fogToggle">
-              <input id="fogToggle" type="checkbox" />
-              Fog of War
-            </label>
-            <button id="timerToggleBtn" class="btn btn-leaf chess-clock-btn" type="button" aria-pressed="true" title="10 minutes per player — counts down on your turn">
-              Clock: 10m each — On
-            </button>
+
+          <div class="topbar-clocks">
             <div class="chess-clocks" aria-label="Time remaining per player">
               <div id="clockP1Wrap" class="clock-face p1">
-                <span class="clock-label">P1</span>
+                <span class="clock-label">Pandav</span>
                 <span id="clockP1" class="clock-time">10:00</span>
               </div>
+              <div class="clock-vs" aria-hidden="true">VS</div>
               <div id="clockP2Wrap" class="clock-face p2">
-                <span class="clock-label">P2</span>
+                <span class="clock-label">Kaurav</span>
                 <span id="clockP2" class="clock-time">10:00</span>
               </div>
             </div>
           </div>
+
+          <div class="topbar-controls">
+            <div class="top-controls-row">
+              <button id="backHomeBtn" class="btn btn-secondary btn-leaf" type="button">⌂ Home</button>
+              <button id="rulesBtn" class="btn btn-leaf" type="button">📜 Rules</button>
+              <button id="resetBtn" class="btn btn-secondary btn-leaf" type="button">↺ Reset</button>
+              <button id="timerToggleBtn" class="btn btn-leaf chess-clock-btn" type="button" aria-pressed="true" title="10 minutes per player">
+                ⏱ Clock: On
+              </button>
+            </div>
+            <div class="top-controls-row">
+              <label class="control-group" for="modeSelect">
+                Mode
+                <select id="modeSelect" class="input input-round">
+                  <option value="local">Local — 2 Players</option>
+                  <option value="ai">You vs AI</option>
+                </select>
+              </label>
+              <label id="aiSideWrap" class="control-group ai-side-wrap" for="sideSelect">
+                Army
+                <select id="sideSelect" class="input input-round">
+                  <option value="pandav">Lead Pandav (P1)</option>
+                  <option value="kaurav">Lead Kaurav (P1)</option>
+                </select>
+              </label>
+              <label class="control-group" for="themeSelect">
+                Theme
+                <select id="themeSelect" class="input input-round">
+                  <option value="kurukshetra">Kurukshetra Dawn</option>
+                  <option value="royal">Royal Arena</option>
+                  <option value="forest">Green Forest</option>
+                  <option value="sunset">War Sunset</option>
+                </select>
+              </label>
+              <label class="control-group checkbox-group" for="fogToggle">
+                <input id="fogToggle" type="checkbox" />
+                Fog of War
+              </label>
+            </div>
+          </div>
         </header>
 
+        <!-- MAIN GAME LAYOUT -->
         <div class="game-layout">
+
+          <!-- CENTER: Battlefield -->
           <section class="battlefield-panel">
-            <h2 class="section-title">Battlefield Area</h2>
-            <div id="boardStage" class="board-stage">
-              <div id="board" class="board" role="application" aria-label="10 by 10 battlefield board"></div>
+            <h2 class="section-title">Kurukshetra · Sacred Battlefield</h2>
+
+            <!-- Nature-framed battlefield arena -->
+            <div class="battlefield-arena">
+              <!-- Irregular top edge (mountain silhouette) -->
+              <div class="terrain-edge terrain-edge-top" aria-hidden="true"></div>
+
+              <!-- Tree decorations (outside board) -->
+              <div class="nature-tree nt-tl1" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="34" height="34"/></div>
+              <div class="nature-tree nt-tl2" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="26" height="26"/></div>
+              <div class="nature-tree nt-tr1" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="30" height="30"/></div>
+              <div class="nature-tree nt-tr2" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="38" height="38"/></div>
+              <div class="nature-tree nt-bl1" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="36" height="36"/></div>
+              <div class="nature-tree nt-bl2" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="24" height="24"/></div>
+              <div class="nature-tree nt-br1" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="32" height="32"/></div>
+              <div class="nature-tree nt-br2" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="28" height="28"/></div>
+              <div class="nature-tree nt-ml" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="22" height="22"/></div>
+              <div class="nature-tree nt-mr" aria-hidden="true"><img src="sprites/icon_tree.svg" alt="" width="26" height="26"/></div>
+
+              <!-- River flow markers on sides -->
+              <div class="river-side rs-left" aria-hidden="true">
+                <img src="sprites/icon_river.svg" alt="" width="22" height="22"/>
+              </div>
+              <div class="river-side rs-right" aria-hidden="true">
+                <img src="sprites/icon_river.svg" alt="" width="22" height="22"/>
+              </div>
+
+              <!-- The actual board -->
+              <div id="boardStage" class="board-stage">
+                <!-- Battle path lanes (visual only) -->
+                <div class="battle-lane bl-left" aria-hidden="true"></div>
+                <div class="battle-lane bl-center" aria-hidden="true"></div>
+                <div class="battle-lane bl-right" aria-hidden="true"></div>
+                <div id="board" class="board" role="application" aria-label="10 by 10 Kurukshetra battlefield"></div>
+              </div>
+
+              <!-- Irregular bottom edge -->
+              <div class="terrain-edge terrain-edge-bottom" aria-hidden="true"></div>
+            </div>
+
+            <!-- MAGIC CARDS hand at bottom -->
+            <div class="card-hand-wrap">
+              <div class="card-hand-header">
+                <span class="card-hand-title">⚜ War Cards</span>
+                <span class="card-hand-subtitle">Play one per turn to turn the tide of battle</span>
+              </div>
+              <div id="cardsState" class="card-hand"></div>
             </div>
           </section>
 
+          <!-- RIGHT: Logs + Status -->
           <aside class="logs-panel">
-            <h2 class="section-title">Player Logs</h2>
+            <h2 class="section-title">Command Post</h2>
+
             <div class="panel-section">
               <h3>Last Action</h3>
               <div id="lastAction" class="last-action">-</div>
             </div>
+
             <div class="panel-section">
-              <h3>Action Log</h3>
+              <h3>Battle Log</h3>
               <ol id="actionLog" class="action-log"></ol>
             </div>
+
             <div class="panel-section">
-              <h3>Phase + Formation</h3>
+              <h3>Field State</h3>
               <div id="phaseState" class="hint"></div>
-              <div id="bonusState" class="hint"></div>
+              <div id="bonusState" class="hint" style="margin-top:5px;"></div>
               <div id="momentumState" class="hint momentum-hint"></div>
             </div>
-            <div class="panel-section">
-              <h3>Cards</h3>
-              <div id="cardsState" class="hint"></div>
-            </div>
-          </aside>
 
-          <aside class="rules-panel">
-            <h2 class="section-title">Rules</h2>
-            <div class="hint">
-              Select your unit, move to highlighted cells, then attack enemies in range. Use cards smartly.
+            <div class="panel-section rules-quick">
+              <h3>Quick Rules</h3>
+              <ul class="rules-list">
+                <li>Defeat the enemy <strong>Leader</strong> to win the war.</li>
+                <li>Cavalry &amp; Chariot cross rivers; others cannot.</li>
+                <li>Elephant: slow but 4 damage on 2×2 reach.</li>
+                <li>Archers attack from range 2–3 tiles away.</li>
+                <li>Chain attacks build <em>Momentum</em> (+1 damage).</li>
+                <li>Cards: one per turn, limited charges.</li>
+              </ul>
             </div>
-            <ul class="rules-list">
-              <li>Chess clock: 10 minutes per player (counts down on your turn); running out loses the match.</li>
-              <li>Defeat the enemy Leader to win.</li>
-              <li>Pandav morale: +1 damage within 2 tiles of your Leader.</li>
-              <li>Kaurav fear: enemy Pandav units beside the Kaurav Leader lose 1 move.</li>
-              <li>Rivers: only Cavalry and Chariots may occupy; melee in a river is weaker.</li>
-              <li>Mud slows movement from that tile; wind and mud random events tweak damage.</li>
-              <li>Momentum: chain attacks or survive hits — at 2+ streak, +1 damage.</li>
-              <li>On the home map, click tree, tent, or river for a one-time first-strike boon.</li>
-            </ul>
           </aside>
         </div>
       </section>
     </main>
 
+    <!-- ═══════════════════════════════════════════════════════════ RULES DIALOG -->
     <dialog id="rulesDialog" class="rules-dialog">
       <div class="rules-header">
-        <h2>Ranbhoomi Rules & Scenarios</h2>
+        <h2>Ranbhoomi — Rules &amp; Scenarios</h2>
         <button id="closeRulesBtn" class="btn btn-secondary btn-leaf" type="button">Close</button>
       </div>
       <div class="rules-content">
@@ -224,53 +364,98 @@
         <section>
           <h3>Turn Flow</h3>
           <ul>
-            <li>Each player has 10 minutes on a chess clock; only the active player’s time decreases.</li>
+            <li>Each player has 10 minutes on a chess clock; only the active player's time decreases.</li>
             <li>Pandav and Kaurav hosts alternate turns (P1 then P2).</li>
             <li>Against AI you always pick your army: Pandav or Kaurav (you stay on P1).</li>
-            <li>In local play, who is Pandav vs Kaurav is randomized each match.</li>
             <li>On your turn, select one of your units and move or attack, or play one card.</li>
           </ul>
         </section>
         <section>
-          <h3>Units</h3>
+          <h3>Units &amp; Stats</h3>
           <ul>
-            <li>Leader (L): critical unit; if defeated, game over.</li>
-            <li>Infantry (I): frontline control unit.</li>
-            <li>Archer (A): ranged attacker (distance 2-3).</li>
-            <li>Cavalry (C): fast flanking movement.</li>
-            <li>Elephant (E): heavy breaker.</li>
-            <li>Chariot (R): elite balanced striker.</li>
+            <li><strong>Leader (L)</strong> — Move 1, HP 10, Dmg 3, range 1×1. Critical unit — if defeated, war is lost.</li>
+            <li><strong>Infantry (I)</strong> — Move 1, HP 6, Dmg 2. Frontline cover; forms Line &amp; Surround formations.</li>
+            <li><strong>Archer (A)</strong> — Move 1, HP 4, Dmg 2. Attacks at range 2–3. Gains +1 on hills.</li>
+            <li><strong>Cavalry (C)</strong> — Move 2, HP 6, Dmg 3. Fast flanking; can cross rivers.</li>
+            <li><strong>Elephant (E)</strong> — Move 1, HP 9, Dmg 4. Slow but massive breaker power.</li>
+            <li><strong>Chariot (R)</strong> — Move 2, HP 7, Dmg 3. Elite balanced striker; crosses rivers.</li>
+          </ul>
+        </section>
+        <section>
+          <h3>Terrain</h3>
+          <ul>
+            <li><strong>Forest</strong> — Archers deal less damage to units sheltered here.</li>
+            <li><strong>Hill</strong> — Archers gain +1 damage when standing on a hill.</li>
+            <li><strong>River</strong> — Only Cavalry and Chariots may occupy; melee from river is weaker.</li>
+            <li><strong>Mud</strong> — Moving from a mud tile costs 1 extra movement.</li>
           </ul>
         </section>
         <section>
           <h3>Advanced Systems</h3>
           <ul>
-            <li>Formations: Line and Surround give combat bonuses.</li>
-            <li>Cards: Strike, Guard, and Reposition (limited charges).</li>
-            <li>Terrain: Forest, Hill, River, and Mud — each changes movement or combat.</li>
-            <li>Leader auras: Pandav morale (attack) and Kaurav intimidation (enemy move).</li>
-            <li>Momentum rewards repeated attacks or successful defense.</li>
-            <li>Random wind, omens, and battlefield spirits can shift damage, movement, or heal troops — watch the banner each turn.</li>
-            <li>Chess clock: 10 minutes per player; only the active player’s time counts down.</li>
-            <li>Fog of War toggle to hide enemy information at distance.</li>
-            <li>Mode select supports local multiplayer and AI opponent.</li>
+            <li><strong>Formations:</strong> Line and Surround bonuses activate automatically when positioned.</li>
+            <li><strong>Cards:</strong> Strike (+2 dmg), Guard (absorb), Reposition (2-tile move). 2 charges each.</li>
+            <li><strong>Leader Auras:</strong> Pandav morale gives +1 attack near Pandav leader; Kaurav intimidation reduces enemy move near Kaurav leader.</li>
+            <li><strong>Momentum:</strong> Chain attacks or defend successfully to build streak — at 2+ gain +1 damage.</li>
+            <li><strong>Random Events:</strong> Wind, Agni's spark, healing dew, and more trigger each turn.</li>
+            <li><strong>Fog of War:</strong> Toggle to hide distant enemy information.</li>
           </ul>
         </section>
         <section>
-          <h3>Current Scenarios</h3>
+          <h3>Scenarios</h3>
           <ul>
-            <li><strong>Opening Deployment:</strong> stable default setup for both players.</li>
-            <li><strong>Frontline Clash:</strong> infantry lines trade space and pressure.</li>
-            <li><strong>Flank Pressure:</strong> cavalry threatens backline from side lanes.</li>
-            <li><strong>Leader Hunt:</strong> focus attacks and positioning to expose enemy leader.</li>
-            <li><strong>Forest Ambush:</strong> vision and terrain focused tactical map.</li>
-            <li><strong>Royal Siege:</strong> high-intensity castle push and hold setup.</li>
+            <li><strong>Opening Deployment:</strong> Stable default setup for balanced learning.</li>
+            <li><strong>Frontline Clash:</strong> Infantry lines trade space and pressure from turn one.</li>
+            <li><strong>Flank Pressure:</strong> Cavalry threatens backline from wide side lanes.</li>
+            <li><strong>Leader Hunt:</strong> Precision attacks and tight choke points.</li>
+            <li><strong>Forest Ambush:</strong> Vision and terrain-focused tactical map.</li>
+            <li><strong>Royal Siege:</strong> High-intensity castle push and hold setup.</li>
           </ul>
         </section>
+      </div>
+    </dialog>
+
+    <!-- ═══════════════════════════════════════════════════════════ SETTINGS DIALOG -->
+    <dialog id="settingsDialog" class="settings-dialog">
+      <div class="settings-header">
+        <h2>⚙ Settings</h2>
+        <button id="closeSettingsBtn" class="btn btn-secondary btn-leaf" type="button">Close</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-row">
+          <label class="setting-label" for="settingsTheme">Visual Theme</label>
+          <select id="settingsTheme" class="input input-round setting-select">
+            <option value="kurukshetra">Kurukshetra Dawn</option>
+            <option value="royal">Royal Arena</option>
+            <option value="forest">Green Forest</option>
+            <option value="sunset">War Sunset</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label" for="settingsMode">Default Mode</label>
+          <select id="settingsMode" class="input input-round setting-select">
+            <option value="local">Local — Two Players</option>
+            <option value="ai">You vs AI</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label" for="settingsTimer">Chess Clock (10 min each)</label>
+          <label class="toggle-switch">
+            <input id="settingsTimer" type="checkbox" checked />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label class="setting-label" for="settingsFog">Fog of War</label>
+          <label class="toggle-switch">
+            <input id="settingsFog" type="checkbox" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <button id="settingsApplyBtn" class="btn btn-primary settings-apply-btn" type="button">Apply &amp; Enter Battle</button>
       </div>
     </dialog>
 
     <script src="main.js" defer></script>
   </body>
 </html>
-

@@ -1,4 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
-  <path d="M4 28c8-4 16 4 24 0s16-4 20 0v8c-6-3-14 3-22 0S10 36 4 32v-4z" fill="#4A8EB8" stroke="#2D5A78" stroke-width="1.2"/>
-  <path d="M6 22c7-3 15 3 22 0s13-3 18 0" stroke="#7EC8E8" stroke-width="2" stroke-linecap="round" opacity="0.7"/>
+  <defs>
+    <linearGradient id="riv" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5AB0D8"/>
+      <stop offset="100%" stop-color="#2870A8"/>
+    </linearGradient>
+  </defs>
+  <!-- River body -->
+  <path d="M2 32 Q8 20 16 24 Q24 28 30 16 Q36 6 46 10" stroke="url(#riv)" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <path d="M2 38 Q10 26 18 30 Q26 34 32 22 Q38 12 46 16" stroke="#7AC8E8" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <!-- River waves -->
+  <path d="M6 35 Q10 32 14 35" stroke="#9ADAF0" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M20 26 Q24 23 28 26" stroke="#9ADAF0" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M34 18 Q38 15 42 18" stroke="#9ADAF0" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
 </svg>

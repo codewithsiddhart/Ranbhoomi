@@ -1,8 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
-  <ellipse cx="30" cy="50" rx="11" ry="5" fill="#2A1E12" opacity="0.4"/>
-  <circle cx="28" cy="20" r="6" fill="#D4A574" stroke="#5C3D1E" stroke-width="1.5"/>
-  <path d="M24 26h14v18H24z" fill="#4A6B4A" stroke="#2D4A2D" stroke-width="1.5"/>
-  <path d="M44 14c8 12 8 24 0 36" stroke="#5C3D1E" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M42 16L14 30" stroke="#8B6914" stroke-width="2" stroke-linecap="round"/>
-  <path d="M14 30l6-3 2 5-6 3-2-5z" fill="#C4A060" stroke="#6B4E1E" stroke-width="1"/>
+  <defs>
+    <linearGradient id="bowgrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B6A3A"/>
+      <stop offset="100%" stop-color="#5A3E1E"/>
+    </linearGradient>
+  </defs>
+  <!-- Shadow -->
+  <ellipse cx="30" cy="58" rx="12" ry="4" fill="#1A0E06" opacity="0.45"/>
+  <!-- Legs -->
+  <path d="M24 48 L20 60M34 48 L36 60" stroke="#4A3A28" stroke-width="3" stroke-linecap="round"/>
+  <!-- Body -->
+  <rect x="22" y="32" width="14" height="18" rx="3" fill="#5A7A3A" stroke="#3A5020" stroke-width="1.5"/>
+  <!-- Head -->
+  <circle cx="29" cy="22" r="8" fill="#C89050" stroke="#7A5228" stroke-width="1.5"/>
+  <!-- Quiver -->
+  <rect x="38" y="26" width="6" height="16" rx="2" fill="#8B5020" stroke="#5A3010" stroke-width="1"/>
+  <line x1="40" y1="24" x2="40" y2="18" stroke="#C8A050" stroke-width="1.5"/>
+  <line x1="42" y1="24" x2="43" y2="16" stroke="#C8A050" stroke-width="1.5"/>
+  <!-- Bow -->
+  <path d="M8 14 Q4 28 8 44" stroke="url(#bowgrad)" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <line x1="8" y1="14" x2="8" y2="44" stroke="#6A4A1A" stroke-width="1" opacity="0.4"/>
+  <!-- Arrow being drawn -->
+  <line x1="8" y1="29" x2="32" y2="29" stroke="#D4A050" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Arm pulling bow -->
+  <path d="M22 32 Q16 30 8 29" stroke="#7A5228" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Arrowhead -->
+  <path d="M32 29 L36 27 L36 31Z" fill="#D4C080"/>
 </svg>
